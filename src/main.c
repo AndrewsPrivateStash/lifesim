@@ -12,7 +12,7 @@
 
     ToDO:
         - make sure all pawns are placed in the beginning
-        - optimize mate function us better data structures
+        - optimize mate function use better data structures
 
 */
 
@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-#include "raylib.h"
+#include "raylib.h"         // https://github.com/raysan5/raylib/tree/master
 #include "../include/pawn.h"
 #include "../include/world.h"
 #include "../include/util.h"
@@ -59,8 +59,8 @@ int main(int argc, char **argv) {
 
     // ########### Initialization ###########
     
-    const int screenWidth = 400;
-    const int screenHeight = 200;
+    const int screenWidth = 1000;
+    const int screenHeight = 500;
 
     const int season_x_pos = screenWidth - 130;
     const int season_y_pos = 0;
@@ -78,6 +78,7 @@ int main(int argc, char **argv) {
     }
 
     world_populate(world, screenWidth, screenHeight, starting_population, 1);
+    world_get_all_mates(world); // populate the mates lists
     printf("world populated with %u Pawns\n", world->pawn_cnt);
     
     char title_buffer[128], season_buffer[128], pawn_buffer[128];
@@ -171,13 +172,14 @@ int main(int argc, char **argv) {
 
         EndDrawing();
 
+        // ############### UPDATE STATE ###############
 
-        // mate the Pawns
-        world_mate(world);
+        world_mate(world);              // mate the Pawns
 
-        // age the pawns (who were not just born)
-        world_age_pawns(world);
-        world_kill_pawns(world);
+        world_age_pawns(world);         // age the pawns (who were not just born)
+        world_kill_pawns(world);        // retire dead pawns
+        world_purge_mates(world);       // remove dead or infertile pawns from lists
+        world_get_all_mates(world);     // update mating lists
 
         if (world->alive_pawns == 0) break;
         

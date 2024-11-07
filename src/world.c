@@ -3,14 +3,16 @@
 #include <stdlib.h>
 #include <math.h>
 #include "../include/world.h"
+#include "../include/plist.h"
 #include "raylib.h"
 
 
-const unsigned int _CAPACITY = 100;     // default starting capacity for pawn array
-const int _WIN_WIDTH_OFFSET = 10;       // pixel offset from window width boundary for pawn population
-const int _WIN_HEIGHT_OFFSET = 10;      // pixel offset from window height boundary for pawn population
-const int _REALLOC_SCALE_FACTOR = 2;    // factor scaling the resizing of an array
-const int _PAWN_SEARCH_RADIUS = 5;      // pixel radius to search around mid-point of parents
+const unsigned int _CAPACITY = 100;         // default starting capacity for pawn array
+const int _WIN_WIDTH_OFFSET = 10;           // pixel offset from window width boundary for pawn population
+const int _WIN_HEIGHT_OFFSET = 10;          // pixel offset from window height boundary for pawn population
+const int _REALLOC_SCALE_FACTOR = 2;        // factor scaling the resizing of an array
+const int _PAWN_SEARCH_RADIUS = 5;          // pixel radius to search around mid-point of parents
+const int _PAWN_MAX_POSSIBLE_MATES = 10;    // the maximum number of possible mates a pawn can store in it's radius
 
 
 static Point2d world_get_new_pawn_xy(World*, Pawn*, Pawn*);             // locate a suitable xy coord for a new pawn to generate
@@ -42,7 +44,7 @@ World *world_new(int *err) {
 
 void world_free(World *w) {
     for (int i = 0; i < w->pawn_cnt; i++) {
-        free(w->pawns[i]);
+        pawn_free(w->pawns[i]);
     }
     free(w);
 }
@@ -130,7 +132,84 @@ void world_kill_pawns(World* w) {
 }
 
 
-void world_mate(World* w) {
+bool world_mating_factor_check(Pawn *p1, Pawn *p2) {
+    int rnd;
+
+    // roll the mating check for both pawns
+    rnd = GetRandomValue(0, 100);
+    if (p1->mating_factor >= rnd) {
+        rnd = GetRandomValue(0, 100);
+        if (p2->mating_factor >= rnd) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+bool world_fertility_check(Pawn *p1, Pawn *p2) {
+    int rnd, avg;
+
+    // average the fertility stats and roll
+    avg = ( p1->fertility_factor + p2->fertility_factor ) / 2;
+    rnd = GetRandomValue(0, 100);
+    if (avg >= rnd)  return true;
+    return false;
+}
+
+
+bool world_mate_check(Pawn *p1, Pawn *p2) {
+    // assumes the two pawns are inside each others mating radius
+    if ( world_mating_factor_check(p1, p2) ) {
+        if ( world_fertility_check(p1, p2) ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+void world_mate(World *w) {
+    Pawn *p;
+    Point2d new_pawn_pt;
+    int bnd = w->pawn_cnt;
+    Plist *pawn_mates = NULL;
+    Pnode *cur = NULL;
+
+    for (int i = 0; i < bnd - 1; i++) {     // loop over all of the existing pawns
+
+        if (w->pawns[i]->alive && w->pawns[i]->fertile && !w->pawns[i]->mated) {    // qualify pawn as matable
+            p = w->pawns[i];
+            if (!p->possible_mates->head) continue;     // no mates
+
+            pawn_mates = p->possible_mates;
+            cur = pawn_mates->head;
+
+            while (cur) {   // check each of the possible mates for the pawn
+                if ( world_mate_check(p, cur->pwn) ) {
+                    // pawns mated; New Pawn, if there is space!
+                    new_pawn_pt = world_get_new_pawn_xy(w, p, cur->pwn);
+                    p->mated = true;
+                    cur->pwn->mated = true;
+
+                    if (new_pawn_pt.x == -1 && new_pawn_pt.y == -1) {
+                        break;   // didn't find space to exist
+                    }
+
+                    // make new pawn
+                    world_add_pawn(w, new_pawn_pt);
+                    break;
+
+                }
+                cur = cur->next;
+            }
+        }
+    }
+    world_reset_mated_flag(w);
+}
+
+
+void world_mate_ex(World *w) {
 
     Point2d p1, p2, new_pawn_pt;
     unsigned int dist, avg;
@@ -189,6 +268,60 @@ void world_mate(World* w) {
 
     world_reset_mated_flag(w);
 };
+
+void world_get_mates(World *w, Pawn *p) {
+    // find all pawns inside mating radius and add to mating list for single pawn
+
+    if (p->possible_mates->cnt == _PAWN_MAX_POSSIBLE_MATES) return;     // pawn at max possible mates
+
+    Point2d ref_point = {p->x_pos, p->y_pos};
+    Point2d comp_point;
+    Pawn *cp;
+    unsigned short dist;
+
+    for (int i = 0; i < w->pawn_cnt; i++) {
+        if (w->pawns[i] == p) continue;
+        cp = w->pawns[i];
+
+        if (cp->alive && cp->fertile) {
+            if (plist_inlist(p->possible_mates, cp)) continue;  // already in list
+
+            comp_point.x = cp->x_pos;
+            comp_point.y = cp->y_pos;
+            dist = world_calc_distance(ref_point, comp_point);
+
+            if ( dist <= p->mating_radius && dist <= cp->mating_radius ) {
+                // comparison pawn is inside the radius 
+                plist_add_node(p->possible_mates, cp, dist);
+            }
+
+        }
+    }
+}
+
+
+void world_get_all_mates(World *w) {
+    for (int i = 0; i < w->pawn_cnt; i++) {
+        if (w->pawns[i]->alive && w->pawns[i]->fertile) {
+            world_get_mates(w, w->pawns[i]);
+        }
+    }
+}
+
+
+void world_purge_mates(World *w) {
+    for (int i = 0; i < w->pawn_cnt; i++) {
+        if (w->pawns[i]->alive) {
+            plist_purge(w->pawns[i]->possible_mates);   
+        }
+    }
+}
+
+
+
+
+
+
 
 
 // ########## location functions ##########
