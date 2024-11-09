@@ -59,10 +59,10 @@ int main(int argc, char **argv) {
 
     // ########### Initialization ###########
     
-    const int screenWidth = 1000;
-    const int screenHeight = 500;
+    const int screenWidth = 400;
+    const int screenHeight = 400;
 
-    const int season_x_pos = screenWidth - 130;
+    const int season_x_pos = screenWidth - 150;
     const int season_y_pos = 0;
     const int pawn_x_pos = 10;
     const int pawn_y_pos = 0;
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    world_populate(world, screenWidth, screenHeight, starting_population, 1);
+    world_populate(world, screenWidth, screenHeight, starting_population);
     world_get_all_mates(world); // populate the mates lists
     printf("world populated with %u Pawns\n", world->pawn_cnt);
     

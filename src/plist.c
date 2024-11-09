@@ -117,7 +117,7 @@ void plist_purge(Plist *list) {
             continue;
         }
         cur = cur->next;
-        
+
     }
 }
 
@@ -147,3 +147,4 @@ void plist_free(Plist *list) {
     }
     free(list);
 }
+

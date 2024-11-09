@@ -4,15 +4,16 @@
 #include <math.h>
 #include "../include/world.h"
 #include "../include/plist.h"
+#include "../include/util.h"
 #include "raylib.h"
 
 
 const unsigned int _CAPACITY = 100;         // default starting capacity for pawn array
-const int _WIN_WIDTH_OFFSET = 10;           // pixel offset from window width boundary for pawn population
-const int _WIN_HEIGHT_OFFSET = 10;          // pixel offset from window height boundary for pawn population
+const int _WIN_WIDTH_OFFSET = 5;           // pixel offset from window width boundary for pawn population
+const int _WIN_HEIGHT_OFFSET = 5;          // pixel offset from window height boundary for pawn population
 const int _REALLOC_SCALE_FACTOR = 2;        // factor scaling the resizing of an array
 const int _PAWN_SEARCH_RADIUS = 5;          // pixel radius to search around mid-point of parents
-const int _PAWN_MAX_POSSIBLE_MATES = 10;    // the maximum number of possible mates a pawn can store in it's radius
+const int _PAWN_MAX_POSSIBLE_MATES = 5;     // the maximum number of possible mates a pawn can store in it's radius
 
 
 static Point2d world_get_new_pawn_xy(World*, Pawn*, Pawn*);             // locate a suitable xy coord for a new pawn to generate
@@ -21,6 +22,7 @@ static Point2d world_region_search(World*, Point2d, int);               // find 
 static unsigned int world_calc_distance(Point2d, Point2d);              // calcuate the distance between two xy Points
 static bool world_is_cell_free(World*, Point2d);                        // check the cell for availability
 static void world_reset_mated_flag(World*);                             // resets the mated flag for all the pawns
+static int* world_random_list(int, int, int, int, int);                 // make an array of indices for populating world
 
 
 // allocate a new world
@@ -30,12 +32,13 @@ World *world_new(int *err) {
         new_world->pawn_cnt = 0;
         new_world->alive_pawns = 0;
         new_world->season = 0;
-    }
+        new_world->capacity = _CAPACITY;
 
-    new_world->capacity = _CAPACITY;
-    new_world->pawns = malloc(sizeof(Pawn*) * new_world->capacity);  //starting capacity, resized if needed
-    if (!new_world->pawns) {
-        *err = -1;
+        new_world->pawns = malloc(sizeof(Pawn*) * new_world->capacity);  //starting capacity, resized if needed
+        if (!new_world->pawns) {
+            *err = -1;
+        }
+
     }
 
     return new_world;
@@ -61,34 +64,41 @@ Pawn** world_resize_pawns(World *w) {
 }
 
 
-void world_populate(World* w, int xmax, int ymax, unsigned int tot_pop, int pop_prob) {
-    int rnd;
+void world_populate(World* w, int xmax, int ymax, int tot_pop) {
+
+    if (xmax - 2 * _WIN_WIDTH_OFFSET < 1 || ymax - 2 * _WIN_HEIGHT_OFFSET < 1) {
+        fprintf(stderr, "window of: %d x %d and offsets of %d, %d don't make sense\n", xmax, ymax, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
+        exit(1);
+    }
+    
+    int *rnd_arr = world_random_list(tot_pop, xmax, ymax, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
+    if (w->capacity == w->pawn_cnt) w->pawns = world_resize_pawns(w);
+    
+    int x_idx, y_idx;
     Pawn *tmp_pawn;
 
-    if (w->capacity == w->pawn_cnt) w->pawns = world_resize_pawns(w);
+    for (int i = 0; i < xmax * ymax; i++) {
+        
+        if (rnd_arr[i]) {
 
-    for (int i = _WIN_WIDTH_OFFSET+1; i< xmax-_WIN_WIDTH_OFFSET; i++) {
-        for (int j = _WIN_HEIGHT_OFFSET+1; j < ymax-_WIN_HEIGHT_OFFSET; j++) {
+            x_idx = i % xmax;
+            y_idx = i / xmax;
 
-            rnd = GetRandomValue(0, 1000);
-            if (pop_prob > rnd && w->pawn_cnt < tot_pop) {
-
-                // makw new pawn
-                tmp_pawn = pawn_new(w->pawn_cnt, i, j, 0, true);
-                if (!tmp_pawn) {
-                    fprintf(stderr, "failed to allocate pawn %u at i-%d j-%d\n", w->pawn_cnt +1, i, j);
-                    continue;
-                }
-
-                w->pawns[w->pawn_cnt] = tmp_pawn;
-                (w->pawn_cnt)++;
-                (w->alive_pawns)++;
-                if (w->capacity == w->pawn_cnt) w->pawns = world_resize_pawns(w);
+            // makw new pawn
+            tmp_pawn = pawn_new(w->pawn_cnt, x_idx, y_idx, 0, true);
+            if (!tmp_pawn) {
+                fprintf(stderr, "failed to allocate pawn %u at i-%d j-%d\n", w->pawn_cnt + 1, x_idx, y_idx);
+                continue;
             }
-            if (w->pawn_cnt >= tot_pop) return;
+
+            w->pawns[w->pawn_cnt] = tmp_pawn;
+            (w->pawn_cnt)++;
+            (w->alive_pawns)++;
+            if (w->capacity == w->pawn_cnt) w->pawns = world_resize_pawns(w);
 
         }
-    }    
+    }
+    free(rnd_arr);
 };
 
 
@@ -408,4 +418,46 @@ static void world_reset_mated_flag(World* w) {
             w->pawns[i]->mated = false;
         }
     }
+}
+
+
+static int* world_random_list(int elems, int xw, int yh, int xbuff, int ybuff) {
+    // elems count of initial pawns to distribute
+    // xw screen width px
+    // yh screen height px
+    // xbuff left and right px buffer regions (symetric)
+    // ybuff top and bottom px buffer regions (symetrci)
+    
+    int len = (xw - 2 * xbuff) * (yh - 2 * ybuff);          // starting array size
+    int *arr = calloc(len, sizeof(int));                    // inner array
+    int *arr_out = calloc(xw * yh, sizeof(int));            // outer array
+
+    if (!arr || !arr_out) {
+        fprintf(stderr, "failed to allocate population random array\n");
+        exit(1);
+    }
+
+    for (int i = 0; i < elems; i++) { // populate array with 1s in the first elem indexes
+        arr[i] = 1;
+    }
+
+    shuffle_ints(arr, len);     // shuffle array
+
+    int idx_o, idx_a;
+    // populate outer array
+    for (int row = 0; row < yh; row++) {      
+        for (int col = 0; col < xw; col++) {
+            
+            if (row < ybuff || row > yh - ybuff - 1) continue;   // top and buttom buffers
+            if (col < xbuff || col > xw - xbuff - 1) continue;   // left and right buffers
+
+            idx_o = row * xw + col;
+            idx_a = (row - ybuff) * (xw - 2 * xbuff) + (col - xbuff);
+            arr_out[idx_o] = arr[idx_a]; 
+        }
+    }
+
+    free(arr);
+    return arr_out;
+
 }

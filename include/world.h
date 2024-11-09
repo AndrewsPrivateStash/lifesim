@@ -30,7 +30,7 @@ typedef struct Point2d {
 // makes new World object. err -1 indicates the Pawn array failed to allocate
 World *world_new(int*);
 // populate the world object with pawns randomly distributing them accross the passed window dimensions
-void world_populate(World*, int xmax, int ymax, unsigned int tot_pop, int pop_prob);
+void world_populate(World*, int xmax, int ymax, int tot_pop);
 // reallocs the pawns array doubling the capacity (like std::vector or slice in Go)
 Pawn **world_resize_pawns(World*);
 // mate the Pawns in the world (exhaustive, checking all pawns O(n^2))
