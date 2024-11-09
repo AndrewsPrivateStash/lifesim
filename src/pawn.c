@@ -13,7 +13,7 @@ const int _GEN_AGE_UPPER_BND = 80;          // max genetic age of Pawn
 const int _FERT_FACT_LOWER_BND = 0;         // min fertility factor of Pawn
 const int _FERT_FACT_UPPER_BND = 100;       // max fertility factor of Pawn
 const int _MATING_RADIUS_LOWER_BND = 1;     // min mating radius of Pawn
-const int _MATING_RADIUS_UPPER_BND = 50;    // max mating radius of Pawn
+const int _MATING_RADIUS_UPPER_BND = 20;    // max mating radius of Pawn
 const int _MATING_FACTOR_LOWER_BND = 0;     // min mating factor of Pawn
 const int _MATING_FACTOR_UPPER_BND = 100;   // max mating factor of Pawn
 

@@ -11,13 +11,17 @@
     - visually represent the population evolve over time as colored pixels in the world map, as generations progress
 
     ToDO:
-        - make sure all pawns are placed in the beginning
-        - optimize mate function use better data structures
+        - optimize mate function use better data structures (look into kd tree or M-ball structures for log n - like searching)
+            > could also move to a 2d array which just seems too easy, but I'm sure would be much faster
+        - kill pawns if they are surrounded
+        - add random migrate proc (rand vector, rand magnitude, rellocate pawn during update if roll succeeds)
+        - add dump of sim details after quit, or world death
 
 */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <time.h>
 #include <string.h>
 #include "raylib.h"         // https://github.com/raysan5/raylib/tree/master
@@ -59,13 +63,15 @@ int main(int argc, char **argv) {
 
     // ########### Initialization ###########
     
-    const int screenWidth = 400;
-    const int screenHeight = 400;
+    const int screenWidth = 1000;
+    const int screenHeight = 1000;
 
     const int season_x_pos = screenWidth - 150;
     const int season_y_pos = 0;
     const int pawn_x_pos = 10;
     const int pawn_y_pos = 0;
+
+    bool paused = false;
 
     // generate world and populate with starting Pawns
     SetRandomSeed(time(NULL));
@@ -87,53 +93,6 @@ int main(int argc, char **argv) {
         strncpy(title_buffer, "Lifesim", sizeof(title_buffer)-1);
     }
     
-    // ###################### TEST ######################
-    /*
-    int pwn_cnt=0;
-    int counter = 0;
-    while (counter<20) {
-        if (snprintf(season_buffer, sizeof(season_buffer), "Season: %u", world->season) <= 0) {
-            strncpy(season_buffer, "Season: NA", sizeof(season_buffer)-1);
-        }
-        printf("Season Buffer: %s\n", season_buffer);
-
-        if (snprintf(pawn_buffer, sizeof(pawn_buffer), "Pawns: %u", world->alive_pawns) <= 0) {
-            strncpy(pawn_buffer, "Pawns: NA", sizeof(pawn_buffer)-1);
-        }
-        printf("pawn buffer: %s\n", pawn_buffer);
-
-        pwn_cnt = 0;        
-        for (int i = 0; i < world->pawn_cnt; i++) {
-            if (world->pawns[i]->alive) {
-                pwn_cnt++;
-            }
-        }
-        if (pwn_cnt != world->alive_pawns) printf("world->alive_pawns: %u should be: %d\n", world->alive_pawns, pwn_cnt);
-
-        // mate the Pawns
-        world_mate(world);
-
-        // age the pawns (who were not just born)
-        world_age_pawns(world);
-        world_kill_pawns(world);
-        (world->season)++;
-
-        for (int i =0; i < world->pawn_cnt; i++) {
-            pawn_print(world->pawns[i]);
-        }
-
-        // printf("ENTER for next loop\n");
-        // getchar();
-        counter++;
-
-    }
-
-    return 0;
-    */
-    // ###################### END TEST ######################
-
-
-
 
     InitWindow(screenWidth, screenHeight, title_buffer);
     SetTargetFPS(5);
@@ -143,13 +102,16 @@ int main(int argc, char **argv) {
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {        
-
-        (world->season)++;
+        if (IsKeyPressed(KEY_SPACE)) paused = !paused;
 
         // Draw
         BeginDrawing();
 
             ClearBackground((Color){63, 59, 57, 255});
+
+            if(paused) {
+                DrawText("PAUSED", screenWidth / 2 - 25, screenHeight / 2, 20, (Color){0, 196, 122, 100});
+            }
 
             // counters ***************************************
             if (snprintf(season_buffer, sizeof(season_buffer), "Season: %u", world->season) <= 0) {
@@ -174,12 +136,14 @@ int main(int argc, char **argv) {
 
         // ############### UPDATE STATE ###############
 
-        world_mate(world);              // mate the Pawns
-
-        world_age_pawns(world);         // age the pawns (who were not just born)
-        world_kill_pawns(world);        // retire dead pawns
-        world_purge_mates(world);       // remove dead or infertile pawns from lists
-        world_get_all_mates(world);     // update mating lists
+        if(!paused) {
+            world_mate(world);              // mate the Pawns
+            world_age_pawns(world);         // age the pawns (who were not just born)
+            world_kill_pawns(world);        // retire dead pawns **and kill pawns with too many neighbors**
+            world_purge_mates(world);       // remove dead or infertile pawns from lists
+            world_get_all_mates(world);     // update mating lists
+            (world->season)++;
+        }
 
         if (world->alive_pawns == 0) break;
         
