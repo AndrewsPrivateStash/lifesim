@@ -8,38 +8,39 @@
 #define MODEL_H_
 
 #include "pawn.h"
+#include "util.h"
 #include <stdbool.h>
 
 
 typedef struct World{
     unsigned int pawn_cnt;      // total count of pawns who have existed
     unsigned int alive_pawns;   // count of alive pawns
-    unsigned int season;        // every tic is a season
-    unsigned int capacity;      // capacity of Pawn array
-    Pawn **pawns;               // array of pointers to pawns
+    unsigned int born_pawns;    // count of born pawns
+    unsigned int season;        // every frame is a season
+    int x_width;                // screen width
+    int y_height;               // screen height
+    int pawn_arr_len;           // length of pawns2d (x_width * y_height)
+    Pawn **pawns2d;             // array of pointers to pawns stored linearly; use arr[row * xw + col] to index (row, col)
 
 } World;
 
-// store an xy coordinate
-typedef struct Point2d {
-    int x;
-    int y;
-} Point2d;
 
 // ########## WORLD ##########
 // makes new World object. err -1 indicates the Pawn array failed to allocate
-World *world_new(int*);
+World *world_new(int*, int, int);
 // populate the world object with pawns randomly distributing them accross the passed window dimensions
-void world_populate(World*, int xmax, int ymax, int tot_pop);
+void world_populate(World*, int tot_pop);
 // reallocs the pawns array doubling the capacity (like std::vector or slice in Go)
 Pawn **world_resize_pawns(World*);
-// mate the Pawns in the world (exhaustive, checking all pawns O(n^2))
+// dump world data to terminal when sim ends
+void world_dump_data(World*);
 
 
 // ########## MATING ##########
-void world_mate_ex(World*);
-// mate the Pawns in the world (use likned list of mates held by pawn, checking up to 20)
+// mate the pawns looking in a grid around each based on the pawns mating radius
 void world_mate(World*);
+// look for mate in the grid around the pawn using radius
+Pawn *world_get_mate(World*, Pawn*);
 // roll the mating factor check
 bool world_mating_factor_check(Pawn*, Pawn*);
 // roll the fertility check
@@ -57,13 +58,6 @@ void world_kill_pawns(World*);
 // age the alive pawns
 void world_age_pawns(World*);
 // populate mates list for a given pawn
-
-// ########## POSSIBLE MATES LIST ##########
-void world_get_mates(World*, Pawn*);
-// update all pawn mating lists
-void world_get_all_mates(World*);
-// purge the dead from mating lists
-void world_purge_mates(World*);
 
 
 #endif

@@ -4,7 +4,7 @@ SRC      := src
 INC      := include
 BLD      := build
 
-EXCSRC   := src/plist_test.c
+EXCSRC   := src/test.c
 
 SRCFLS   := $(shell find src -type f -size +0c)
 SRCFLS   := $(filter-out $(EXCSRC), $(SRCFLS))
@@ -20,9 +20,9 @@ LINKS    := -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 
 all: $(BIN)
 
-# test the gtree data structure
-test: bin/plist_test $(SRC)/plist.c $(INC)/plist.h $(SRC)/pawn.c $(SRC)/world.c
-bin/plist_test: $(SRC)/plist.c $(SRC)/plist_test.c $(SRC)/pawn.c $(SRC)/world.c
+# random tests
+test: bin/test $(SRC)/test.c $(filter-out $(SRC)/main.c, $(SRCFLS))
+bin/test: $(SRC)/test.c $(filter-out $(SRC)/main.c, $(SRCFLS))
 	$(CC) $(CFLAGS) $^ $(LINKS) -o $@
 
 

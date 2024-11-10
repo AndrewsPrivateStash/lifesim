@@ -1,6 +1,5 @@
 
 #include "../include/pawn.h"
-#include "../include/plist.h"
 #include "raylib.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,17 +33,6 @@ Pawn *pawn_new(unsigned int id, int x, int y, unsigned int bday, bool pre_age){
         p->age = 0;
         p->fertile = false;
         p->mated = false;
-
-        // make mate list
-        Plist *mates = malloc(sizeof(Plist));
-        if (!mates) {
-            fprintf(stderr, "error allocating memory for mates list, for pawn: %p (%d,%d)\n", p, p->x_pos, p->y_pos);
-            exit(1);
-        }
-        p->possible_mates = mates;
-            p->possible_mates->owning_pawn = p;
-            p->possible_mates->cnt = 0;
-            p->possible_mates->head = NULL;
         
         // random values (set once; genetics from birth)
         p->gen_age = (unsigned short)GetRandomValue(_GEN_AGE_LOWER_BND,_GEN_AGE_UPPER_BND);
@@ -93,6 +81,5 @@ void pawn_print(Pawn *p) {
 }
 
 void pawn_free(Pawn *p) {
-    plist_free(p->possible_mates);
     free(p);
 }

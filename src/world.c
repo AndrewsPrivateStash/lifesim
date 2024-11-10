@@ -3,17 +3,15 @@
 #include <stdlib.h>
 #include <math.h>
 #include "../include/world.h"
-#include "../include/plist.h"
 #include "../include/util.h"
 #include "raylib.h"
 
 
-const unsigned int _CAPACITY = 100;         // default starting capacity for pawn array
-const int _WIN_WIDTH_OFFSET = 5;           // pixel offset from window width boundary for pawn population
-const int _WIN_HEIGHT_OFFSET = 5;          // pixel offset from window height boundary for pawn population
-const int _REALLOC_SCALE_FACTOR = 2;        // factor scaling the resizing of an array
-const int _PAWN_SEARCH_RADIUS = 5;          // pixel radius to search around mid-point of parents
-const int _PAWN_MAX_POSSIBLE_MATES = 5;     // the maximum number of possible mates a pawn can store in it's radius
+const int _WIN_WIDTH_OFFSET = 5;                // pixel offset from window width boundary for pawn population
+const int _WIN_HEIGHT_OFFSET = 5;               // pixel offset from window height boundary for pawn population
+//const int _REALLOC_SCALE_FACTOR = 2;          // factor scaling the resizing of an array
+const int _PAWN_SEARCH_RADIUS = 5;              // pixel radius to search around mid-point of parents
+const int _PAWN_MAX_POSSIBLE_MATES = 5;         // the maximum number of possible mates a pawn can store in it's radius
 
 
 static Point2d world_get_new_pawn_xy(World*, Pawn*, Pawn*);             // locate a suitable xy coord for a new pawn to generate
@@ -26,17 +24,24 @@ static int* world_random_list(int, int, int, int, int);                 // make 
 
 
 // allocate a new world
-World *world_new(int *err) {
+World *world_new(int *err, int xw, int yh) {
     World *new_world = malloc(sizeof(World));   // let the caller check for NULL
     if (new_world) {
         new_world->pawn_cnt = 0;
         new_world->alive_pawns = 0;
+        new_world->born_pawns = 0;
         new_world->season = 0;
-        new_world->capacity = _CAPACITY;
+        new_world->x_width = xw;
+        new_world->y_height = yh;
+        new_world->pawn_arr_len = new_world->x_width * new_world->y_height;
 
-        new_world->pawns = malloc(sizeof(Pawn*) * new_world->capacity);  //starting capacity, resized if needed
-        if (!new_world->pawns) {
+        // 2d pawn array (linear storage)
+        new_world->pawns2d = malloc(sizeof(Pawn*) * new_world->pawn_arr_len);
+        if (!new_world->pawns2d) {
             *err = -1;
+        }
+        for (int i = 0; i < xw * yh; i++) {
+            new_world->pawns2d[i] = NULL;
         }
 
     }
@@ -46,43 +51,53 @@ World *world_new(int *err) {
 
 
 void world_free(World *w) {
-    for (int i = 0; i < w->pawn_cnt; i++) {
-        pawn_free(w->pawns[i]);
+    for (int i = 0; i < w->pawn_arr_len; i++) {
+        pawn_free(w->pawns2d[i]);
     }
     free(w);
 }
 
-
-Pawn** world_resize_pawns(World *w) {
-    Pawn **tmp = realloc(w->pawns, sizeof(Pawn*) * w->capacity * _REALLOC_SCALE_FACTOR);
-    if (!tmp) {
-        fprintf(stderr, "failed to reallocate pawns array in world object\n");
-        exit(1);
-    }
-    w->capacity *= _REALLOC_SCALE_FACTOR;
-    return tmp;
+void world_dump_data(World *w) {
+    // when sim ends print out stats
+    printf("\nLIFESIM STATS:\n------------------------------\n");
+    printf("world dims: %d width x %d height\n",w->x_width, w->y_height);
+    printf("seasons: %u\n", w->season);
+    printf("all time pawns: %u\nliving pawns at end: %u\ndead pawns: %u\n", w->pawn_cnt, w->alive_pawns, w->pawn_cnt - w->alive_pawns);
+    printf("pawns born: %u\n", w->born_pawns);
+    printf("------------------------------\n");
 }
 
 
-void world_populate(World* w, int xmax, int ymax, int tot_pop) {
+// Pawn** world_resize_pawns(World *w) {
+//     Pawn **tmp = realloc(w->pawns, sizeof(Pawn*) * w->capacity * _REALLOC_SCALE_FACTOR);
+//     if (!tmp) {
+//         fprintf(stderr, "failed to reallocate pawns array in world object\n");
+//         exit(1);
+//     }
+//     w->capacity *= _REALLOC_SCALE_FACTOR;
+//     return tmp;
+// }
 
-    if (xmax - 2 * _WIN_WIDTH_OFFSET < 1 || ymax - 2 * _WIN_HEIGHT_OFFSET < 1) {
-        fprintf(stderr, "window of: %d x %d and offsets of %d, %d don't make sense\n", xmax, ymax, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
+
+void world_populate(World* w, int tot_pop) {
+
+    // check offsets fit in window dims
+    if (w->x_width - 2 * _WIN_WIDTH_OFFSET < 1 || w->y_height - 2 * _WIN_HEIGHT_OFFSET < 1) {
+        fprintf(stderr, "window of: %d x %d and offsets of %d, %d don't make sense\n", w->x_width, w->y_height, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
         exit(1);
     }
     
-    int *rnd_arr = world_random_list(tot_pop, xmax, ymax, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
-    if (w->capacity == w->pawn_cnt) w->pawns = world_resize_pawns(w);
+    int *rnd_arr = world_random_list(tot_pop, w->x_width, w->y_height, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
     
     int x_idx, y_idx;
     Pawn *tmp_pawn;
 
-    for (int i = 0; i < xmax * ymax; i++) {
+    for (int i = 0; i < w->pawn_arr_len; i++) {
         
         if (rnd_arr[i]) {
 
-            x_idx = i % xmax;
-            y_idx = i / xmax;
+            x_idx = i % w->x_width;
+            y_idx = i / w->x_width;
 
             // makw new pawn
             tmp_pawn = pawn_new(w->pawn_cnt, x_idx, y_idx, 0, true);
@@ -91,10 +106,9 @@ void world_populate(World* w, int xmax, int ymax, int tot_pop) {
                 continue;
             }
 
-            w->pawns[w->pawn_cnt] = tmp_pawn;
+            w->pawns2d[y_idx * w->x_width + x_idx] = tmp_pawn;
             (w->pawn_cnt)++;
             (w->alive_pawns)++;
-            if (w->capacity == w->pawn_cnt) w->pawns = world_resize_pawns(w);
 
         }
     }
@@ -103,13 +117,12 @@ void world_populate(World* w, int xmax, int ymax, int tot_pop) {
 
 
 void world_add_pawn(World* w, Point2d p) {
-    if (w->capacity == w->pawn_cnt) w->pawns = world_resize_pawns(w);   // check array capacity first
     Pawn *tmp = pawn_new(w->pawn_cnt + 1, p.x, p.y, w->season, false);
     if(!tmp) {
         fprintf(stderr, "failed to allocate Pawn %u, at: (%d, %d)\n", w->pawn_cnt+1, p.x, p.y);
         return;
     }
-    w->pawns[w->pawn_cnt] = tmp;
+    w->pawns2d[p.y * w->x_width + p.x] = tmp;
     (w->pawn_cnt)++;
     (w->alive_pawns)++;
 
@@ -117,9 +130,11 @@ void world_add_pawn(World* w, Point2d p) {
 
 
 void world_age_pawns(World* w) {
-    for (int i = 0; i < w->pawn_cnt; i++) {
-        if (w->pawns[i]->alive && w->pawns[i]->bday < w->season) {
-            pawn_age(w->pawns[i]);
+    for (int i = 0; i < w->pawn_arr_len; i++) {
+        if (w->pawns2d[i]) {
+            if (w->pawns2d[i]->alive && w->pawns2d[i]->bday < w->season) {
+                pawn_age(w->pawns2d[i]);
+            }
         }
     }
 }
@@ -127,17 +142,21 @@ void world_age_pawns(World* w) {
 
 void world_kill_pawns(World* w) {
     Pawn *p;
-    for (int i = 0; i< w->pawn_cnt; i++) {
-        if(w->pawns[i]->alive) {
-            p = w->pawns[i];
-            if (p->age >= p->gen_age) {
-                p->alive = false;
-                p->fertility_factor = 0;
-                p->mating_factor = 0;
-                p->mating_radius = 0;
-                (w->alive_pawns)--;
+    for (int i = 0; i< w->pawn_arr_len; i++) {
+        if (w->pawns2d[i]) {    //is cell occupied
+
+            if(w->pawns2d[i]->alive) {
+                p = w->pawns2d[i];
+                if (p->age >= p->gen_age) {
+                    p->alive = false;
+                    p->fertility_factor = 0;
+                    p->mating_factor = 0;
+                    p->mating_radius = 0;
+                    (w->alive_pawns)--;
+                }
             }
         }
+
     }
 }
 
@@ -169,6 +188,10 @@ bool world_fertility_check(Pawn *p1, Pawn *p2) {
 
 
 bool world_mate_check(Pawn *p1, Pawn *p2) {
+    
+    unsigned int dist = world_calc_distance((Point2d){p1->x_pos, p1->y_pos}, (Point2d){p2->x_pos, p2->y_pos});
+    if ( dist > p1->mating_radius || dist > p2->mating_radius ) return false;
+
     // assumes the two pawns are inside each others mating radius
     if ( world_mating_factor_check(p1, p2) ) {
         if ( world_fertility_check(p1, p2) ) {
@@ -178,159 +201,71 @@ bool world_mate_check(Pawn *p1, Pawn *p2) {
     return false;
 }
 
+Pawn *world_get_mate(World *w, Pawn *p) {
+    // check mates in radius and return a pawn if found
+    int rad = p->mating_radius;
+    int x = p->x_pos, y = p->y_pos;
+    int idx;
+    int mating_tries = _PAWN_MAX_POSSIBLE_MATES;
+    Pawn *ret_pawn = NULL;
+    
+
+    // randomize check order otherwise bias migrate NW
+    int pnt_cnt = (rad*2+1) * (rad*2+1) -1;
+    Point2d *pnts = generate_random_offsets(rad);
+
+    for (int i = 0; i < pnt_cnt; i++) {
+        if (x + pnts[i].x < 0 || x + pnts[i].x > w->x_width-1) continue;      // off x boundary
+        if (y + pnts[i].y < 0 || y + pnts[i].y > w->y_height-1) continue;     // off y boundary
+
+        idx = (y + pnts[i].y) * w->x_width + (x + pnts[i].x);
+
+        if (w->pawns2d[idx]) {
+            if ( world_mate_check(p, w->pawns2d[idx]) ) return w->pawns2d[idx];
+            mating_tries--;
+            if (mating_tries == 0) return ret_pawn;
+        }
+    }
+
+    free(pnts);
+
+    return ret_pawn;
+}
 
 void world_mate(World *w) {
-    Pawn *p;
+    Pawn *p, *mate;
     Point2d new_pawn_pt;
-    int bnd = w->pawn_cnt;
-    Plist *pawn_mates = NULL;
-    Pnode *cur = NULL;
 
-    for (int i = 0; i < bnd - 1; i++) {     // loop over all of the existing pawns
+    // loop over all of the window cells
+    for (int i = 0; i < w->pawn_arr_len; i++) {
+        if (w->pawns2d[i]){ // is the cell populated
+            if (w->pawns2d[i]->alive && w->pawns2d[i]->fertile && !w->pawns2d[i]->mated) {    // qualify pawn as matable
+                p = w->pawns2d[i];
 
-        if (w->pawns[i]->alive && w->pawns[i]->fertile && !w->pawns[i]->mated) {    // qualify pawn as matable
-            p = w->pawns[i];
-            if (!p->possible_mates->head) continue;     // no mates
+                // try to mate pawn
+                mate = world_get_mate(w, p);
+                if (!mate) continue;    // no mate found
 
-            pawn_mates = p->possible_mates;
-            cur = pawn_mates->head;
+                // pawns mated; New Pawn, if there is space!
+                new_pawn_pt = world_get_new_pawn_xy(w, p, mate);
+                p->mated = true;
+                mate->mated = true;
 
-            while (cur) {   // check each of the possible mates for the pawn
-                if ( world_mate_check(p, cur->pwn) ) {
-                    // pawns mated; New Pawn, if there is space!
-                    new_pawn_pt = world_get_new_pawn_xy(w, p, cur->pwn);
-                    p->mated = true;
-                    cur->pwn->mated = true;
-
-                    if (new_pawn_pt.x == -1 && new_pawn_pt.y == -1) {
-                        break;   // didn't find space to exist
-                    }
-
-                    // make new pawn
-                    world_add_pawn(w, new_pawn_pt);
-                    break;
-
+                if (new_pawn_pt.x == -1 && new_pawn_pt.y == -1) {
+                    continue;   // didn't find space to exist
                 }
-                cur = cur->next;
-            }
+
+                // make new pawn
+                world_add_pawn(w, new_pawn_pt);
+                w->born_pawns++;
+
+            }       
+
         }
     }
     world_reset_mated_flag(w);
+
 }
-
-
-void world_mate_ex(World *w) {
-
-    Point2d p1, p2, new_pawn_pt;
-    unsigned int dist, avg;
-    int rnd;
-    int bnd = w->pawn_cnt;
-
-    for (int i = 0; i < bnd - 1; i++) {
-
-        if (w->pawns[i]->alive && w->pawns[i]->fertile && !w->pawns[i]->mated) {
-            p1.x = w->pawns[i]->x_pos;
-            p1.y = w->pawns[i]->y_pos;
-
-            for (int j = i+1; j < bnd; j++) {
-
-                if (w->pawns[j]->alive && w->pawns[j]->fertile && !w->pawns[i]->mated) {
-                    p2.x = w->pawns[j]->x_pos;
-                    p2.y = w->pawns[j]->y_pos;
-
-                    dist = world_calc_distance(p1, p2);     // distance between i and j pawn
-
-                    // check mating radius for both pawns
-                    if ( dist <= w->pawns[i]->mating_radius && dist <= w->pawns[j]->mating_radius) {
-                        
-                        // roll the mating check for both pawns
-                        rnd = GetRandomValue(0, 100);
-                        if (w->pawns[i]->mating_factor >= rnd) {
-                            rnd = GetRandomValue(0, 100);
-                            if (w->pawns[j]->mating_factor >= rnd) {
-                                
-                                // average the fertility stats and roll
-                                avg = ( w->pawns[i]->fertility_factor + w->pawns[j]->fertility_factor ) / 2;
-                                rnd = GetRandomValue(0, 100);
-                                if (avg >= rnd) {
-                                                                        
-                                    // New Pawn, if there is space!
-                                    new_pawn_pt = world_get_new_pawn_xy(w, w->pawns[i], w->pawns[j]);
-                                    w->pawns[i]->mated = true;
-                                    w->pawns[j]->mated = true;
-
-                                    if (new_pawn_pt.x == -1 && new_pawn_pt.y == -1) {
-                                        break;   // didn't find space to exist
-                                    }
-
-                                    // make new pawn
-                                    world_add_pawn(w, new_pawn_pt);
-                                    break;  // continue to i-loop
-                                    
-                                }
-                            }
-                        }
-                    }       
-                }
-            }
-        }
-    }
-
-    world_reset_mated_flag(w);
-};
-
-void world_get_mates(World *w, Pawn *p) {
-    // find all pawns inside mating radius and add to mating list for single pawn
-
-    if (p->possible_mates->cnt == _PAWN_MAX_POSSIBLE_MATES) return;     // pawn at max possible mates
-
-    Point2d ref_point = {p->x_pos, p->y_pos};
-    Point2d comp_point;
-    Pawn *cp;
-    unsigned short dist;
-
-    for (int i = 0; i < w->pawn_cnt; i++) {
-        if (w->pawns[i] == p) continue;
-        cp = w->pawns[i];
-
-        if (cp->alive && cp->fertile) {
-            if (plist_inlist(p->possible_mates, cp)) continue;  // already in list
-
-            comp_point.x = cp->x_pos;
-            comp_point.y = cp->y_pos;
-            dist = world_calc_distance(ref_point, comp_point);
-
-            if ( dist <= p->mating_radius && dist <= cp->mating_radius ) {
-                // comparison pawn is inside the radius 
-                plist_add_node(p->possible_mates, cp, dist);
-            }
-
-        }
-    }
-}
-
-
-void world_get_all_mates(World *w) {
-    for (int i = 0; i < w->pawn_cnt; i++) {
-        if (w->pawns[i]->alive && w->pawns[i]->fertile) {
-            world_get_mates(w, w->pawns[i]);
-        }
-    }
-}
-
-
-void world_purge_mates(World *w) {
-    for (int i = 0; i < w->pawn_cnt; i++) {
-        if (w->pawns[i]->alive) {
-            plist_purge(w->pawns[i]->possible_mates);   
-        }
-    }
-}
-
-
-
-
-
 
 
 
@@ -353,19 +288,22 @@ static Point2d world_region_search(World* w, Point2d p, int r) {
     }
 
     Point2d tmp;
-    // find nearby point in radius
-    for (int i = -r; i <= r; i++) {         //x (-r..r)
-        for (int j = -r; j <= r; j++) {     //y (-r..r)
-            if (i == 0 && j == 0) continue;
-            tmp.x = p.x + i;
-            tmp.y = p.y + j;
-            if (tmp.x < 0 || tmp.y < 0) continue;   // if search cell extends beyond the window in either dim, ignore and continue
+    int pnt_cnt = (2 * r + 1) * (2 * r + 1) -1;
+    Point2d *pnts = generate_random_offsets(r);
 
-            if (world_is_cell_free(w, tmp)) {
-                return tmp;
-            }
+    // find nearby point in radius
+    for (int i = 0; i < pnt_cnt; i++) {
+
+        tmp.x = p.x + pnts[i].x;
+        tmp.y = p.y + pnts[i].y;
+        if (tmp.x < 0 || tmp.y < 0) continue;   // if search cell extends beyond the window in either dim, ignore and continue
+        if (tmp.x > w->x_width-1 || tmp.y > w->y_height-1) continue;
+
+        if (world_is_cell_free(w, tmp)) {
+            return tmp;
         }
     }
+        
     tmp.x = -1; tmp.y = -1;
     return tmp;     // failed to find cell, returns (-1,-1)
 
@@ -402,20 +340,16 @@ static unsigned int world_calc_distance(Point2d p1, Point2d p2) {
 
 
 static bool world_is_cell_free(World* w, Point2d p) {
-    for (int i = 0; i < w->pawn_cnt; i++) {
-        if (w->pawns[i]->alive) {
-            if ( p.x == w->pawns[i]->x_pos && p.y == w->pawns[i]->y_pos ) {
-                return false;
-            }
-        }
-    }
-    return true;
+    return w->pawns2d[p.y * w->x_width + p.x] == NULL;
+
 }
 
 static void world_reset_mated_flag(World* w) {
-    for (int i = 0; i < w->pawn_cnt; i++) {
-        if(w->pawns[i]->mated){
-            w->pawns[i]->mated = false;
+    for (int i = 0; i < w->pawn_arr_len; i++) {
+        if (w->pawns2d[i]) {
+            if(w->pawns2d[i]->mated) {
+                w->pawns2d[i]->mated = false;
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 /*
     list of pawns, where list holds pawns inside of mating radius for the owning pawn
     and the each node holds the distance to owning pawn
+
+    NOT USED CURRENTLY
 */
 
 #ifndef PLIST_H_

@@ -11,11 +11,8 @@
     - visually represent the population evolve over time as colored pixels in the world map, as generations progress
 
     ToDO:
-        - optimize mate function use better data structures (look into kd tree or M-ball structures for log n - like searching)
-            > could also move to a 2d array which just seems too easy, but I'm sure would be much faster
         - kill pawns if they are surrounded
         - add random migrate proc (rand vector, rand magnitude, rellocate pawn during update if roll succeeds)
-        - add dump of sim details after quit, or world death
 
 */
 
@@ -64,12 +61,16 @@ int main(int argc, char **argv) {
     // ########### Initialization ###########
     
     const int screenWidth = 1000;
-    const int screenHeight = 1000;
+    const int screenHeight = 500;
 
     const int season_x_pos = screenWidth - 150;
     const int season_y_pos = 0;
     const int pawn_x_pos = 10;
     const int pawn_y_pos = 0;
+
+    const Color FERTILE_ADULT = {71, 110, 233, 255};
+    const Color INFERTILE_ADULT = {150, 25, 25, 255};
+    const Color CHILD = {150, 10, 136, 255};
 
     bool paused = false;
 
@@ -77,14 +78,14 @@ int main(int argc, char **argv) {
     SetRandomSeed(time(NULL));
 
     int err = 0;
-    World *world = world_new(&err);
+    World *world = world_new(&err, screenWidth, screenHeight);
     if (err) {
         fprintf(stderr, "error allocating world struct\n");
         exit(1);
     }
 
-    world_populate(world, screenWidth, screenHeight, starting_population);
-    world_get_all_mates(world); // populate the mates lists
+    world_populate(world, starting_population);
+    //world_get_all_mates(world); // populate the mates lists
     printf("world populated with %u Pawns\n", world->pawn_cnt);
     
     char title_buffer[128], season_buffer[128], pawn_buffer[128];
@@ -95,7 +96,7 @@ int main(int argc, char **argv) {
     
 
     InitWindow(screenWidth, screenHeight, title_buffer);
-    SetTargetFPS(5);
+    SetTargetFPS(60);
 
     //--------------------------------------------------------------------------------------
 
@@ -126,9 +127,22 @@ int main(int argc, char **argv) {
 
             // ************************************************
 
-            for (int i = 0; i < world->pawn_cnt; i++) {
-                if (world->pawns[i]->alive) {
-                    DrawPixel(world->pawns[i]->x_pos, world->pawns[i]->y_pos, (Color){71, 110, 233, 255});
+            for (int i = 0; i < world->pawn_arr_len; i++) {
+                if (world->pawns2d[i]) {    // is the cell occupied
+
+                    if (world->pawns2d[i]->alive) {
+                        if (world->pawns2d[i]->fertile) {
+                            DrawPixel(world->pawns2d[i]->x_pos, world->pawns2d[i]->y_pos, FERTILE_ADULT);
+
+                        } else if (!world->pawns2d[i]->fertile && world->pawns2d[i]->age >= 13) {
+                            DrawPixel(world->pawns2d[i]->x_pos, world->pawns2d[i]->y_pos, INFERTILE_ADULT);
+
+                        } else if (world->pawns2d[i]->age < 13) {
+                            DrawPixel(world->pawns2d[i]->x_pos, world->pawns2d[i]->y_pos, CHILD);
+                        }
+
+                    }
+
                 }
             }
 
@@ -140,8 +154,8 @@ int main(int argc, char **argv) {
             world_mate(world);              // mate the Pawns
             world_age_pawns(world);         // age the pawns (who were not just born)
             world_kill_pawns(world);        // retire dead pawns **and kill pawns with too many neighbors**
-            world_purge_mates(world);       // remove dead or infertile pawns from lists
-            world_get_all_mates(world);     // update mating lists
+            //world_purge_mates(world);       // remove dead or infertile pawns from lists
+            //world_get_all_mates(world);     // update mating lists
             (world->season)++;
         }
 
@@ -156,7 +170,7 @@ int main(int argc, char **argv) {
     //--------------------------------------------------------------------------------------
     
 
-    // add terminal dump of final stats on close
+    world_dump_data(world);
     world_free(world);
     return 0;
 }

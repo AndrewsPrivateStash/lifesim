@@ -9,7 +9,6 @@
 #define PAWN_H_
 
 #include <stdbool.h>
-#include "plist.h"
 
 typedef struct Plist Plist;     // forward decleration
 
@@ -25,7 +24,6 @@ typedef struct Pawn {
     unsigned short mating_radius;       // genetic pixel radius for mating
     unsigned short mating_factor;       // genetic attractiveness (chance an available pawn will mate)
     bool mated;                         // did this pawn mate this season; reset after mating period
-    Plist *possible_mates;              // list of mates in radius
 
 } Pawn;
 
