@@ -38,8 +38,8 @@ void swap_ints(int *a, int *b) {
     *b = tmp;
 }
 
-void swap_pnts(Point2d *a, Point2d *b) {
-    Point2d tmp;
+void swap_vecs(Vec2d *a, Vec2d *b) {
+    Vec2d tmp;
     tmp = *a;
     *a = *b;
     *b = tmp;
@@ -47,7 +47,7 @@ void swap_pnts(Point2d *a, Point2d *b) {
 
 
 void shuffle_ints(int *a, int len) {
-    srand ( time(NULL) );   // randomize seed
+    // assumes srand( time(NULL) ) was already called
 
     int j;
     for (int i = len -1; i > 0; i--) {
@@ -56,13 +56,13 @@ void shuffle_ints(int *a, int len) {
     }
 }
 
-void shuffle_points(Point2d *a, int len) {
-    srand ( time(NULL) );   // randomize seed
+void shuffle_vecs(Vec2d *a, int len) {
+    // assumes srand( time(NULL) ) was already called
 
     int j;
     for (int i = len -1; i > 0; i--) {
         j = rand() % (i + 1);
-        swap_pnts(&a[j], &a[i]);
+        swap_vecs(&a[j], &a[i]);
     }
 }
 
@@ -113,15 +113,15 @@ void print_int_matrix(int* mat, int c, int r) {
 }
 
 
-Point2d *generate_random_offsets(int rad) {
+Vec2d *generate_random_offsets(int rad) {
     if (rad < 1) return NULL;
 
     // given radius r, grid has side len: 2r+1 => (2r+1)^2 -1 results, excluding (0,0) offset
     int pnt_cnt = (2 * rad + 1) * (2 * rad + 1);
-    Point2d *pnts = malloc( (pnt_cnt -1) * sizeof(Point2d) );
+    Vec2d *pnts = malloc( (pnt_cnt -1) * sizeof(Vec2d) );   // caller frees
 
 
-    // make vectors
+    // make offsets
     int id = 0;
     for (int row = -rad; row <= rad; row++) {
         for (int col = -rad; col <= rad; col++) {
@@ -132,9 +132,32 @@ Point2d *generate_random_offsets(int rad) {
         }
     }
 
-    // shuffle points
-    shuffle_points(pnts, pnt_cnt -1);
+    // shuffle offsets
+    shuffle_vecs(pnts, pnt_cnt -1);
 
     return pnts;
+
+}
+
+
+int convert_2d_to_1d_idx(int x, int y, int w) {
+    return (y * w) + x;
+}
+
+
+Point2d convert_1d_to_2d_idx(int i, int w) {
+    return (Point2d){ .x  = i % w , .y = i / w };
+}
+
+
+Vec2d generate_random_vector(int mag) {
+    // assumes srand( time(NULL) ) was already called
+    if (mag < 1) return (Vec2d){.x=0, .y=0};
+    
+    Vec2d out_vec;
+    out_vec.x = rand() % (2 * mag + 1) - mag;
+    out_vec.y = rand() % (2 * mag + 1) - mag;
+
+    return out_vec;
 
 }

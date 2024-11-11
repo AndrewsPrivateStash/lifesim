@@ -27,9 +27,16 @@ typedef struct Pawn {
 
 } Pawn;
 
+// allocate and initialize a new pawn
 Pawn *pawn_new(unsigned int id, int x, int y, unsigned int bday, bool pre_age);
+
+// age the pawn and update its stats
 void pawn_age(Pawn*);
+
+// print the pawn details to the stdout
 void pawn_print(Pawn*);
+
+// free the pawns memory
 void pawn_free(Pawn*);
 
 

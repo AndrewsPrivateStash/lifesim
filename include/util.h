@@ -9,6 +9,12 @@ typedef struct Point2d {
     int y;
 } Point2d;
 
+// a 2d int vector
+typedef struct Vec2d {
+    int x;
+    int y;
+} Vec2d;
+
 
 /*  convert a string (from command line, or elsewhere) into an int
     handle errors by setting negative values in a passed error pointer:
@@ -22,13 +28,13 @@ int string_to_int(const char*, int*);
 void swap_ints(int*, int*);
 
 // swap two points
-void swap_pnts(Point2d *, Point2d *);
+void swap_vecs(Vec2d*, Vec2d *);
 
 // shuffle int array
 void shuffle_ints(int*, int);
 
 // shuffle points
-void shuffle_points(Point2d *, int);
+void shuffle_vecs(Vec2d*, int);
 
 // print an array
 void print_array(void*, int, char);
@@ -37,7 +43,16 @@ void print_array(void*, int, char);
 void print_int_matrix(int*, int, int);
 
 // generate random offsets excluding trivial (0,0) offset
-Point2d *generate_random_offsets(int);
+Vec2d *generate_random_offsets(int);
+
+// 2d to 1d index: y * w + x
+int convert_2d_to_1d_idx(int x, int y, int w);
+
+// 1d to 2d index: (i % w, i / w)
+Point2d convert_1d_to_2d_idx(int i, int w);
+
+// generate random vector
+Vec2d generate_random_vector(int);
 
 
 #endif

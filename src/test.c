@@ -12,17 +12,10 @@
 
 int main(void) {
 
-    const int n = 2;
-
-    Point2d *pnts = generate_random_offsets(n);
     
-    int cnt = (n*2+1) * (n*2+1) - 1;
-    for (int i = 0; i<cnt; i++) {
-        printf("%d:\t(%d, %d)\n", i, pnts[i].x, pnts[i].y);
-    }
+    printf("world size: %lu\n", sizeof(World));
+    printf("pawn size: %lu\n", sizeof(Pawn));
 
-
-    free(pnts);
 
     return 0;
 }

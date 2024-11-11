@@ -10,9 +10,8 @@
 
     - visually represent the population evolve over time as colored pixels in the world map, as generations progress
 
-    ToDO:
-        - kill pawns if they are surrounded
-        - add random migrate proc (rand vector, rand magnitude, rellocate pawn during update if roll succeeds)
+    ToDo:
+        - refactor update to make a single pass and perform the various operations to avoid multiple large array scans
 
 */
 
@@ -58,12 +57,12 @@ int main(int argc, char **argv) {
     }
 
 
-    // ########### Initialization ###########
+    // ########### Constants ###########
     
     const int screenWidth = 1000;
-    const int screenHeight = 500;
+    const int screenHeight = 600;
 
-    const int season_x_pos = screenWidth - 150;
+    const int season_x_pos = screenWidth - 160;
     const int season_y_pos = 0;
     const int pawn_x_pos = 10;
     const int pawn_y_pos = 0;
@@ -74,8 +73,13 @@ int main(int argc, char **argv) {
 
     bool paused = false;
 
+    // #################################
+
+
+
     // generate world and populate with starting Pawns
     SetRandomSeed(time(NULL));
+    srand ( time(NULL) );
 
     int err = 0;
     World *world = world_new(&err, screenWidth, screenHeight);
@@ -154,12 +158,18 @@ int main(int argc, char **argv) {
             world_mate(world);              // mate the Pawns
             world_age_pawns(world);         // age the pawns (who were not just born)
             world_kill_pawns(world);        // retire dead pawns **and kill pawns with too many neighbors**
-            //world_purge_mates(world);       // remove dead or infertile pawns from lists
-            //world_get_all_mates(world);     // update mating lists
+            world_migrate_pawns(world);     // migrate pawns who pass check every 5 seasons
             (world->season)++;
         }
 
         if (world->alive_pawns == 0) break;
+
+        if (world->season % 50 == 0) {
+            if (!world_audit_world(world)) {
+                fprintf(stderr, "\nAudit failed, alive counts don't match\n");
+                paused = true;
+            }
+        }
         
         //----------------------------------------------------------------------------------
     }

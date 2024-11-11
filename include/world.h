@@ -9,6 +9,7 @@
 
 #include "pawn.h"
 #include "util.h"
+#include "pawnvec.h"
 #include <stdbool.h>
 
 
@@ -16,6 +17,10 @@ typedef struct World{
     unsigned int pawn_cnt;      // total count of pawns who have existed
     unsigned int alive_pawns;   // count of alive pawns
     unsigned int born_pawns;    // count of born pawns
+    unsigned int old_age_death;     // count of pawns who die naturally
+    unsigned int starved_pawns;     // count of starved pawns
+    unsigned int attacked_pawns;    // count of attacked pawns
+    unsigned int migrated_pawns;    // count of migrated pawns
     unsigned int season;        // every frame is a season
     int x_width;                // screen width
     int y_height;               // screen height
@@ -28,10 +33,10 @@ typedef struct World{
 // ########## WORLD ##########
 // makes new World object. err -1 indicates the Pawn array failed to allocate
 World *world_new(int*, int, int);
+// free the world object and associated pawn array
+void world_free(World*);
 // populate the world object with pawns randomly distributing them accross the passed window dimensions
 void world_populate(World*, int tot_pop);
-// reallocs the pawns array doubling the capacity (like std::vector or slice in Go)
-Pawn **world_resize_pawns(World*);
 // dump world data to terminal when sim ends
 void world_dump_data(World*);
 
@@ -47,17 +52,22 @@ bool world_mating_factor_check(Pawn*, Pawn*);
 bool world_fertility_check(Pawn*, Pawn*);
 // decide if the two pawns will mate
 bool world_mate_check(Pawn*, Pawn*);
-// free the world object and associated pawn array
 
-// ########## UTILS ##########
-void world_free(World*);
+
+// ########## GENERAL ##########
 // add a pawn to the pawns array at a given point
 void world_add_pawn(World*, Point2d);
 // scan pawns and retire those of old age
 void world_kill_pawns(World*);
 // age the alive pawns
 void world_age_pawns(World*);
-// populate mates list for a given pawn
-
+// random chance to migrate the pawn, returns array of pawns to migrate
+PawnVec *world_find_migrating_pawns(World *w);
+// migrate the found pawns
+void world_migrate_pawns(World*);
+// count the pawns in the ring around current pawn
+int world_count_pawns_in_ring(World*, Pawn*, int);
+// audit the world stats
+bool world_audit_world(World*);
 
 #endif

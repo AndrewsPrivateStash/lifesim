@@ -7,17 +7,17 @@
 
 
 // ############### Constants ###############
-const int _GEN_AGE_LOWER_BND = 1;           // min genetic age of Pawn
-const int _GEN_AGE_UPPER_BND = 80;          // max genetic age of Pawn
-const int _FERT_FACT_LOWER_BND = 0;         // min fertility factor of Pawn
-const int _FERT_FACT_UPPER_BND = 100;       // max fertility factor of Pawn
-const int _MATING_RADIUS_LOWER_BND = 1;     // min mating radius of Pawn
-const int _MATING_RADIUS_UPPER_BND = 20;    // max mating radius of Pawn
-const int _MATING_FACTOR_LOWER_BND = 0;     // min mating factor of Pawn
-const int _MATING_FACTOR_UPPER_BND = 100;   // max mating factor of Pawn
+static const int _GEN_AGE_LOWER_BND = 1;           // min genetic age of Pawn
+static const int _GEN_AGE_UPPER_BND = 80;          // max genetic age of Pawn
+static const int _FERT_FACT_LOWER_BND = 0;         // min fertility factor of Pawn
+static const int _FERT_FACT_UPPER_BND = 100;       // max fertility factor of Pawn
+static const int _MATING_RADIUS_LOWER_BND = 1;     // min mating radius of Pawn
+static const int _MATING_RADIUS_UPPER_BND = 10;    // max mating radius of Pawn
+static const int _MATING_FACTOR_LOWER_BND = 0;     // min mating factor of Pawn
+static const int _MATING_FACTOR_UPPER_BND = 100;   // max mating factor of Pawn
 
-const double _FERTILITY_DECAY = 0.95;       // the decay factor applied to fertility factor each season
-const int _FERTILITY_START = 13;            // the age a Pawn becomes fertile
+static const double _FERTILITY_DECAY = 0.95;       // the decay factor applied to fertility factor each season
+static const int _FERTILITY_START = 13;            // the age a Pawn becomes fertile
 
 
 // ############### Pawn functions ############### 
