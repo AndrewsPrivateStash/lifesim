@@ -50,6 +50,11 @@ Pawn *pawn_new(unsigned int id, int x, int y, unsigned int bday, bool pre_age){
 };
 
 
+void pawn_free(Pawn *p) {
+    free(p);
+}
+
+
 void pawn_age(Pawn *p){
     if (p) {
         if (p->alive) {
@@ -80,6 +85,3 @@ void pawn_print(Pawn *p) {
     );
 }
 
-void pawn_free(Pawn *p) {
-    free(p);
-}

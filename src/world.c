@@ -60,10 +60,12 @@ World *world_new(int *err, int xw, int yh) {
 
 
 void world_free(World *w) {
-    for (int i = 0; i < w->pawn_arr_len; i++) {
-        if (!w->pawns2d[i]) continue;
-        pawn_free(w->pawns2d[i]);
+    for (int i = 0; i<w->pawn_arr_len; i++) {
+        if (w->pawns2d[i]) {
+            free(w->pawns2d[i]);
+        }
     }
+    free(w->pawns2d);
     free(w);
 }
 
@@ -106,7 +108,7 @@ void world_populate(World* w, int tot_pop) {
             tmp_pawn = pawn_new(w->pawn_cnt, x_idx, y_idx, 0, true);
             if (!tmp_pawn) {
                 fprintf(stderr, "failed to allocate pawn %u at i-%d j-%d\n", w->pawn_cnt + 1, x_idx, y_idx);
-                continue;
+                exit(1);
             }
 
             w->pawns2d[y_idx * w->x_width + x_idx] = tmp_pawn;
@@ -123,7 +125,7 @@ void world_add_pawn(World* w, Point2d p) {
     Pawn *tmp = pawn_new(w->pawn_cnt + 1, p.x, p.y, w->season, false);
     if(!tmp) {
         fprintf(stderr, "failed to allocate Pawn %u, at: (%d, %d)\n", w->pawn_cnt+1, p.x, p.y);
-        return;
+        exit(1);
     }
     w->pawns2d[p.y * w->x_width + p.x] = tmp;
     w->pawn_cnt++;
@@ -181,7 +183,10 @@ PawnVec *world_find_migrating_pawns(World *w) {
 
 void world_migrate_pawns(World *w) {
     PawnVec *pv = world_find_migrating_pawns(w);
-    if (pv->len == 0) return;
+    if (pv->len == 0) {
+        pawnvec_free(pv);   
+        return;
+    }
 
     int mig_idx, old_idx;
     for (int i = 0; i < pv->len; i++) {
@@ -215,9 +220,8 @@ void world_kill_pawns(World* w) {
     for (int i = 0; i< w->pawn_arr_len; i++) {
         if (!w->pawns2d[i]) continue;    // is cell empty
 
-        
-        if(w->pawns2d[i]->alive) {
-            p = w->pawns2d[i];
+        p = w->pawns2d[i];
+        if(p->alive) {
             cnt = world_count_pawns_in_ring(w, p, 1);
             if (cnt > 8) {  // avoid seg
                 fprintf(stderr, "ring has more than 8: %d\n", cnt);
@@ -229,8 +233,8 @@ void world_kill_pawns(World* w) {
                 p->alive = false;
                 w->alive_pawns--;
                 w->old_age_death++;
-                pawn_free(p);
                 w->pawns2d[i] = NULL;
+                pawn_free(p);
                 continue;
             }
 
@@ -242,8 +246,8 @@ void world_kill_pawns(World* w) {
                 p->alive = false;
                 w->alive_pawns--;
                 w->starved_pawns++;
-                pawn_free(p);
                 w->pawns2d[i] = NULL;
+                pawn_free(p);
                 continue;
             }
 
@@ -253,13 +257,13 @@ void world_kill_pawns(World* w) {
                 p->alive = false;
                 w->alive_pawns--;
                 w->attacked_pawns++;
-                pawn_free(p);
                 w->pawns2d[i] = NULL;
+                pawn_free(p);
             }
 
         } else {    // pawn is dead, clean up memory
-            pawn_free(w->pawns2d[i]);
             w->pawns2d[i] = NULL;
+            pawn_free(p);
         }
     }
 }
@@ -326,9 +330,15 @@ Pawn *world_get_mate(World *w, Pawn *p) {
         idx = (y + pnts[i].y) * w->x_width + (x + pnts[i].x);
 
         if (w->pawns2d[idx]) {
-            if ( world_mate_check(p, w->pawns2d[idx]) ) return w->pawns2d[idx];
+            if ( world_mate_check(p, w->pawns2d[idx]) ) {
+                free(pnts);
+                return w->pawns2d[idx];
+            }
             mating_tries--;
-            if (mating_tries == 0) return ret_pawn;
+            if (mating_tries == 0) {
+                free(pnts);
+                return ret_pawn;
+            }
         }
     }
 
@@ -440,9 +450,11 @@ static Point2d world_region_search(World* w, Point2d p, int r) {
         if (tmp.x > w->x_width-1 || tmp.y > w->y_height-1) continue;
 
         if (world_is_cell_free(w, tmp)) {
+            free(pnts);
             return tmp;
         }
     }
+    free(pnts);
         
     tmp.x = -1; tmp.y = -1;
     return tmp;     // failed to find cell, returns (-1,-1)

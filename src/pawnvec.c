@@ -27,6 +27,15 @@ PawnVec *pawnvec_new(void) {
 }
 
 
+void pawnvec_free(PawnVec *pv) {
+    for (int i = 0; i< pv->len; i++) {
+        free(pv->ps[i]);
+    }
+    free(pv->ps);
+    free(pv);
+}
+
+
 void pawnvec_resize(PawnVec *pv) {
     struct MigPawn **tmp = realloc(pv->ps, sizeof(struct MigPawn*) * (pv->cap) * _REALLOC_SCALE_FACTOR);
     if (!tmp) {
@@ -42,14 +51,6 @@ void pawnvec_add(PawnVec *pv, struct MigPawn *p) {
     if (pv->cap == pv->len) pawnvec_resize(pv);
     pv->ps[pv->len] = p;
     pv->len++;
-}
-
-
-void pawnvec_free(PawnVec *pv) {
-    for (int i = 0; i< pv->len; i++) {
-        free(pv->ps[i]);
-    }
-    free(pv);
 }
 
 
