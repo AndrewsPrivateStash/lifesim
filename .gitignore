@@ -2,7 +2,6 @@
 *.d
 
 # Object files
-build/
 *.o
 *.ko
 *.obj
@@ -39,6 +38,7 @@ bin/
 *.hex
 
 # Debug files
+*.txt
 *.dSYM/
 *.su
 *.idb

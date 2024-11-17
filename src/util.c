@@ -92,6 +92,7 @@ void print_array(void *a, int len, char type) {
         
         break;
         }
+        default:
 
     }
 
@@ -141,11 +142,14 @@ Vec2d *generate_random_offsets(int rad) {
 
 
 int convert_2d_to_1d_idx(int x, int y, int w) {
+    if (x < 0 || y < 0 || w < 0) return -1;
+    if (x >= w ) return -1;
     return (y * w) + x;
 }
 
 
 Point2d convert_1d_to_2d_idx(int i, int w) {
+    if (w < 1 || i < 0) return (Point2d){-1,-1};
     return (Point2d){ .x  = i % w , .y = i / w };
 }
 

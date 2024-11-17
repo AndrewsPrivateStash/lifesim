@@ -70,6 +70,7 @@ void pawn_age(Pawn *p){
 
 
 void pawn_print(Pawn *p) {
+    if (!p) return;
     printf("id:%u, age:%u, alive:%d, bday:%u, (%d,%d), fertile:%d, fert_fact:%u, mating_rad:%u, mating_fact:%u, gen_age:%u\n",
         p->id,
         p->age,

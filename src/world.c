@@ -2,21 +2,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdbool.h>
+#include <raylib.h>
 #include "../include/world.h"
 #include "../include/util.h"
 #include "../include/pawnvec.h"
-#include "raylib.h"
 
 
 static const int _WIN_WIDTH_OFFSET = 10;                                    // pixel offset from window width boundary for pawn population
 static const int _WIN_HEIGHT_OFFSET = 10;                                   // pixel offset from window height boundary for pawn population
 static const int _PAWN_SEARCH_RADIUS = 5;                                  // pixel radius to search around mid-point of parents
 static const int _PAWN_MAX_POSSIBLE_MATES = 3;                              // the maximum number of possible mates a pawn can store in it's radius
-static const int _PAWN_STARVE_PROBS[] = {0, 0, 0, 0, 1, 3, 10, 15};          // prob of pawn starving based on immediate ring population
-static const int _PAWN_ATTACKED_PROBS[] = {0, 0, 0, 0, 0, 0, 1, 2};         // prob of pawn being attacked based on immediate ring population
-static const int _PAWN_MIGRATION_RADIUS = 5;                               // max radius a pawn can migrate
-static const int _PAWN_MIGRATION_PROB = 1;                                 // chance pawn migrates in a season
+static const int _PAWN_STARVE_PROBS[] = {0, 0, 1, 2, 3, 5, 10, 15};          // prob of pawn starving based on immediate ring population
+static const int _PAWN_ATTACKED_PROBS[] = {0, 0, 0, 0, 1, 2, 3, 5};         // prob of pawn being attacked based on immediate ring population
+static const int _PAWN_MIGRATION_RADIUS = 20;                               // max radius a pawn can migrate
+static const int _PAWN_MIGRATION_PROB = 10;                                 // chance pawn migrates in a season
 static const int _PAWN_MIGRATION_PROB_DENOM = 1000;                         // chance pawn migrates in a season
+static const int _PAWN_RING_RADIUS = 1;                                     // radius around pawn to check for other pawns (for starve, and attack rolls)
 
 
 static Point2d world_get_new_pawn_xy(World*, Pawn*, Pawn*);                 // locate a suitable xy coord for a new pawn to generate
@@ -24,12 +26,17 @@ static Point2d world_find_midpoint(Point2d, Point2d);                       // c
 static Point2d world_region_search(World*, Point2d, int);                   // find empty cell in radius of point
 static unsigned int world_calc_distance(Point2d, Point2d);                  // calcuate the distance between two xy Points
 static bool world_is_cell_free(World*, Point2d);                            // check the cell for availability
-static void world_reset_mated_flag(World*);                                 // resets the mated flag for all the pawns
+static void world_reset_mated_flag(PawnVec*);                               // resets the mated flag for all the pawns
 static int* world_random_list(int, int, int, int, int);                     // make an array of indices for populating world
 
 
-// allocate a new world
 World *world_new(int *err, int xw, int yh) {
+    // check offsets fit in window dims
+    if (xw - 2 * _WIN_WIDTH_OFFSET < 1 || yh - 2 * _WIN_HEIGHT_OFFSET < 1) {
+        fprintf(stderr, "window of: %d x %d and offsets of %d, %d don't make sense\n", xw, yh, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
+        exit(1);
+    }
+
     World *new_world = malloc(sizeof(World));   // let the caller check for NULL
     if (new_world) {
         new_world->pawn_cnt = 0;
@@ -45,14 +52,10 @@ World *world_new(int *err, int xw, int yh) {
         new_world->pawn_arr_len = new_world->x_width * new_world->y_height;
 
         // 2d pawn array (linear storage)
-        new_world->pawns2d = malloc(sizeof(Pawn*) * new_world->pawn_arr_len);
+        new_world->pawns2d = calloc(new_world->pawn_arr_len, sizeof(Pawn*));
         if (!new_world->pawns2d) {
             *err = -1;
         }
-        for (int i = 0; i < xw * yh; i++) {
-            new_world->pawns2d[i] = NULL;
-        }
-
     }
 
     return new_world;
@@ -68,6 +71,7 @@ void world_free(World *w) {
     free(w->pawns2d);
     free(w);
 }
+
 
 void world_dump_data(World *w) {
     // when sim ends print out stats
@@ -85,15 +89,13 @@ void world_dump_data(World *w) {
 
 
 void world_populate(World* w, int tot_pop) {
-
-    // check offsets fit in window dims
-    if (w->x_width - 2 * _WIN_WIDTH_OFFSET < 1 || w->y_height - 2 * _WIN_HEIGHT_OFFSET < 1) {
-        fprintf(stderr, "window of: %d x %d and offsets of %d, %d don't make sense\n", w->x_width, w->y_height, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
+    int pawn_capacity = (w->x_width - 2 * _WIN_WIDTH_OFFSET) * (w->y_height - 2 * _WIN_HEIGHT_OFFSET);
+    if (tot_pop > pawn_capacity) {
+        fprintf(stderr, "%d is too many pawns for %d free space\n", tot_pop, pawn_capacity);
         exit(1);
     }
     
     int *rnd_arr = world_random_list(tot_pop, w->x_width, w->y_height, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
-    
     int x_idx, y_idx;
     Pawn *tmp_pawn;
 
@@ -121,151 +123,223 @@ void world_populate(World* w, int tot_pop) {
 };
 
 
-void world_add_pawn(World* w, Point2d p) {
+void world_update(World *w) {
+    PawnVec *mate_list = pawnvec_new();
+    PawnVec *born_list = pawnvec_new();
+    PawnVec *dead_list = pawnvec_new();
+    if (!mate_list || !born_list || !dead_list) {
+        fprintf(stderr, "could not make PawnVec\n");
+        exit(1);
+    }
+    MigVec *migrate_list = pawnvec_new_mg();
+    if (!migrate_list) {
+        fprintf(stderr, "could not make MigVec\n");
+        exit(1);
+    }
+
+    // main update loop
+    Pawn *p = NULL;
+    for (int i = 0; i < w->pawn_arr_len; i++) {
+        
+        if(!w->pawns2d[i]) continue;                        // skip empty cells
+        p = w->pawns2d[i];
+
+        world_kill_pawn(w, w->pawns2d[i], dead_list);       // retire dead pawn **and kill pawns with too many neighbors**
+        if (!p->alive) continue;                            // pawn is now dead
+
+        world_mate(w, p, mate_list, born_list);             // mate a Pawn
+        world_age_pawn(w, p);                               // age the pawns (who were not just born)
+        world_find_migrating_pawns(w, p, migrate_list);     // add pawn to migration list if passes roll
+        
+    }
+
+    // place the newborns
+    if (born_list->len > 0) {
+        for (int i = 0; i<born_list->len; i++) {
+            world_add_pawn(w, born_list->ps[i]);
+            w->born_pawns++;
+        }
+    }
+
+    world_reset_mated_flag(mate_list);                      // use mate_list to reset the mated flag
+    world_migrate_pawns(w, migrate_list);                   // move the pawns that are to migrate
+    world_remove_dead_pawns(w, dead_list);                  // remove the dead pawns
+
+    pawnvec_free(mate_list);
+    pawnvec_free(born_list);
+    pawnvec_free(dead_list);
+    pawnvec_free_mg(migrate_list);
+
+}
+
+
+void world_add_new_pawn_by_point(World* w, Point2d p) {
     Pawn *tmp = pawn_new(w->pawn_cnt + 1, p.x, p.y, w->season, false);
     if(!tmp) {
         fprintf(stderr, "failed to allocate Pawn %u, at: (%d, %d)\n", w->pawn_cnt+1, p.x, p.y);
         exit(1);
     }
-    w->pawns2d[p.y * w->x_width + p.x] = tmp;
+    w->pawns2d[convert_2d_to_1d_idx(p.x, p.y, w->x_width)] = tmp;
     w->pawn_cnt++;
     w->alive_pawns++;
 
 }
 
 
-void world_age_pawns(World* w) {
-    for (int i = 0; i < w->pawn_arr_len; i++) {
-        if (w->pawns2d[i]) {
-            if (w->pawns2d[i]->alive && w->pawns2d[i]->bday < w->season) {
-                pawn_age(w->pawns2d[i]);
-            }
-        }
-    }
-}
-
-
-PawnVec *world_find_migrating_pawns(World *w) {
-    Vec2d v;
-    int rnd;
-    Pawn *p;
-    Point2d pnt;
-
-    PawnVec *pv = pawnvec_new();
-    if (!pv) {
-        fprintf(stderr, "failed to make pawn vector!\n");
+void world_new_pawn(World* w, Point2d p, PawnVec *bornVec) {
+    Pawn *tmp = pawn_new(w->pawn_cnt + 1, p.x, p.y, w->season, false);
+    if(!tmp) {
+        fprintf(stderr, "failed to allocate Pawn %u, at: (%d, %d)\n", w->pawn_cnt+1, p.x, p.y);
         exit(1);
     }
+    pawnvec_add(bornVec, tmp);
+}
 
-    for (int i = 0; i < w->pawn_arr_len; i++) {
-        if (!w->pawns2d[i]) continue;
-        if (w->pawns2d[i]->alive) {
 
-            p = w->pawns2d[i];
-            rnd = GetRandomValue(1, _PAWN_MIGRATION_PROB_DENOM);
-            if (rnd >= _PAWN_MIGRATION_PROB) {
-                v = generate_random_vector(_PAWN_MIGRATION_RADIUS);
-                if ( v.x == 0 && v.y == 0) continue;    // same cell
-                if (v.x + p->x_pos < 0 || v.x + p->x_pos > w->x_width-1) continue;      // off x boundary
-                if (v.y + p->y_pos < 0 || v.y + p->y_pos > w->y_height-1) continue;     // off y boundary
-
-                pnt.x = p->x_pos + v.x; pnt.y = p->y_pos + v.y;
-                if( world_is_cell_free(w, pnt) ) {   // migration cell is free
-                    pawnvec_add(pv, pawnvec_new_migpawn(p, pnt));
-                }
-            }
-        }
-    }
-
-    return pv;
+void world_add_pawn(World* w, Pawn *p) {
+    if (!p) return;
+    w->pawns2d[convert_2d_to_1d_idx(p->x_pos, p->y_pos, w->x_width)] = p;
+    w->pawn_cnt++;
+    w->alive_pawns++;
 
 }
 
-void world_migrate_pawns(World *w) {
-    PawnVec *pv = world_find_migrating_pawns(w);
-    if (pv->len == 0) {
-        pawnvec_free(pv);   
+void world_remove_dead_pawns(World *w, PawnVec *pv) {
+    if (!pv) return;
+    if (pv->len == 0) return;
+    int idx;  
+
+    Pawn *p = NULL;
+    for (int i = 0; i<pv->len; i++) {
+        p = pv->ps[i];
+        idx = convert_2d_to_1d_idx(p->x_pos, p->y_pos, w->x_width);
+        w->pawns2d[idx] = NULL;
+        w->alive_pawns--;
+        pawn_free(p);
+    }
+}
+
+
+void world_age_pawn(World *w, Pawn* p) {
+    if (p) {
+        if (p->alive && p->bday < w->season) {
+            pawn_age(p);
+        }
+    }
+}
+
+
+void world_find_migrating_pawns(World *w, Pawn *p, MigVec *mg) {
+    
+    if (!mg) {
+        fprintf(stderr, "null mig vector!\n");
+        return;
+    }
+    if (!p) {
+        fprintf(stderr, "null pawn!\n");
         return;
     }
 
-    int mig_idx, old_idx;
-    for (int i = 0; i < pv->len; i++) {
-        // place pawn if the location is free
-        if(!world_is_cell_free(w, pv->ps[i]->mig_pnt)) continue;    // if the cell is occupied now; first come first served
+    if (p->alive) {
 
-        mig_idx = convert_2d_to_1d_idx(pv->ps[i]->mig_pnt.x, pv->ps[i]->mig_pnt.y, w->x_width);
-        old_idx = convert_2d_to_1d_idx(pv->ps[i]->p->x_pos, pv->ps[i]->p->y_pos, w->x_width);
+        // roll the migration check
+        int rnd = GetRandomValue(1, _PAWN_MIGRATION_PROB_DENOM);
+        if (rnd <= _PAWN_MIGRATION_PROB) {
 
-        // move pawn
-        w->pawns2d[mig_idx] = pv->ps[i]->p;
-        w->pawns2d[old_idx] = NULL;
+            Vec2d v = generate_random_vector(_PAWN_MIGRATION_RADIUS);
+            if ( v.x == 0 && v.y == 0) return;    // same cell
+            if (v.x + p->x_pos < 0 || v.x + p->x_pos > w->x_width-1) return;      // off x boundary
+            if (v.y + p->y_pos < 0 || v.y + p->y_pos > w->y_height-1) return;     // off y boundary
 
-        // update pawn
-        pv->ps[i]->p->x_pos = pv->ps[i]->mig_pnt.x;
-        pv->ps[i]->p->y_pos = pv->ps[i]->mig_pnt.y;
+            Point2d pnt = {.x = p->x_pos + v.x, .y = p->y_pos + v.y};
+            if( world_is_cell_free(w, pnt) ) {   // migration cell is free
+                pawnvec_add_mg(mg, pawnvec_new_migpawn(p, pnt));
+            }
 
-        w->migrated_pawns++;
+        }
 
     }
-
-    pawnvec_free(pv);
-
 }
 
 
-void world_kill_pawns(World* w) {
-    Pawn *p;
-    int rnd, cnt;
+void world_migrate_pawns(World *w, MigVec *mg) {
+    if (mg->len == 0) return;
 
-    for (int i = 0; i< w->pawn_arr_len; i++) {
-        if (!w->pawns2d[i]) continue;    // is cell empty
+    int mig_idx, old_idx;
+    for (int i = 0; i < mg->len; i++) {
+        // place pawn if the location is free
+        if(!world_is_cell_free(w, mg->ps[i]->mig_pnt)) continue;    // if the cell is occupied now; first come first served
 
-        p = w->pawns2d[i];
-        if(p->alive) {
-            cnt = world_count_pawns_in_ring(w, p, 1);
-            if (cnt > 8) {  // avoid seg
-                fprintf(stderr, "ring has more than 8: %d\n", cnt);
-                exit(1);
-            }
+        mig_idx = convert_2d_to_1d_idx(mg->ps[i]->mig_pnt.x, mg->ps[i]->mig_pnt.y, w->x_width);
+        old_idx = convert_2d_to_1d_idx(mg->ps[i]->p->x_pos, mg->ps[i]->p->y_pos, w->x_width);
 
-            // dies of old age
-            if (p->age >= p->gen_age) {
-                p->alive = false;
-                w->alive_pawns--;
-                w->old_age_death++;
-                w->pawns2d[i] = NULL;
-                pawn_free(p);
-                continue;
-            }
+        // move pawn
+        w->pawns2d[mig_idx] = mg->ps[i]->p;
+        w->pawns2d[old_idx] = NULL;
 
-            if (cnt == 0) continue; // nothing to check;
+        // update pawn coords
+        mg->ps[i]->p->x_pos = mg->ps[i]->mig_pnt.x;
+        mg->ps[i]->p->y_pos = mg->ps[i]->mig_pnt.y;
 
-            // dies of starvation
-            rnd = GetRandomValue(1, 100);
-            if (_PAWN_STARVE_PROBS[cnt - 1] >= rnd) {
-                p->alive = false;
-                w->alive_pawns--;
-                w->starved_pawns++;
-                w->pawns2d[i] = NULL;
-                pawn_free(p);
-                continue;
-            }
-
-            // dies of attack
-            rnd = GetRandomValue(1, 100);
-            if (_PAWN_ATTACKED_PROBS[cnt - 1] >= rnd) {
-                p->alive = false;
-                w->alive_pawns--;
-                w->attacked_pawns++;
-                w->pawns2d[i] = NULL;
-                pawn_free(p);
-            }
-
-        } else {    // pawn is dead, clean up memory
-            w->pawns2d[i] = NULL;
-            pawn_free(p);
-        }
+        w->migrated_pawns++;
     }
+}
+
+
+void world_kill_pawn(World *w, Pawn *p, PawnVec *dv) {
+
+    if (!p || !dv) return;
+    int rnd, cnt;
+    //int idx = convert_2d_to_1d_idx(p->x_pos, p->y_pos, w->x_width);
+
+    if(p->alive) {
+        cnt = world_count_pawns_in_ring(w, p, _PAWN_RING_RADIUS);
+        if (cnt > (_PAWN_RING_RADIUS * 2 + 1) * (_PAWN_RING_RADIUS * 2 + 1) -1) {  // avoid seg
+            fprintf(stderr, "ring has more than (2r+1)^2-1 cells: %d returned\n", cnt);
+            exit(1);
+        }
+        
+        // dies of old age
+        if (p->age >= p->gen_age) {
+            p->alive = false;
+            // w->alive_pawns--;
+            w->old_age_death++;
+            // w->pawns2d[idx] = NULL;
+            // pawn_free(p);
+            pawnvec_add(dv, p);
+            return;
+        }
+
+        if (cnt == 0) return; // nothing to check;
+
+        // dies of starvation
+        rnd = GetRandomValue(1, 100);
+        if (_PAWN_STARVE_PROBS[cnt - 1] >= rnd) {
+            p->alive = false;
+            // w->alive_pawns--;
+            w->starved_pawns++;
+            // w->pawns2d[idx] = NULL;
+            // pawn_free(p);
+            pawnvec_add(dv, p);
+            return;
+        }
+
+        // dies of attack
+        rnd = GetRandomValue(1, 100);
+        if (_PAWN_ATTACKED_PROBS[cnt - 1] >= rnd) {
+            p->alive = false;
+            // w->alive_pawns--;
+            w->attacked_pawns++;
+            // w->pawns2d[idx] = NULL;
+            // pawn_free(p);
+            pawnvec_add(dv, p);
+            return;
+        }
+
+    } else {
+        fprintf(stderr, "pawn: %u at (%d, %d) still around but dead\n", p->id, p->x_pos, p->y_pos);
+    }
+    
 }
 
 
@@ -327,7 +401,7 @@ Pawn *world_get_mate(World *w, Pawn *p) {
         if (x + pnts[i].x < 0 || x + pnts[i].x > w->x_width-1) continue;      // off x boundary
         if (y + pnts[i].y < 0 || y + pnts[i].y > w->y_height-1) continue;     // off y boundary
 
-        idx = (y + pnts[i].y) * w->x_width + (x + pnts[i].x);
+        idx = convert_2d_to_1d_idx(x + pnts[i].x, y + pnts[i].y, w->x_width);
 
         if (w->pawns2d[idx]) {
             if ( world_mate_check(p, w->pawns2d[idx]) ) {
@@ -347,45 +421,41 @@ Pawn *world_get_mate(World *w, Pawn *p) {
     return ret_pawn;
 }
 
-
-void world_mate(World *w) {
-    Pawn *p, *mate;
+// add pawn collect, and pawn populate functions
+void world_mate(World *w, Pawn *p, PawnVec *mate_vec, PawnVec *born_vec) {
+    Pawn *mate;
     Point2d new_pawn_pt;
+    
+    if (!p || !mate_vec) return;    // is the cell or vector empty
 
-    // loop over all of the window cells
-    for (int i = 0; i < w->pawn_arr_len; i++) {
-        if (!w->pawns2d[i]) continue;    // is the cell empty
+    if (p->alive && p->fertile && !p->mated) {    // qualify pawn as matable
 
-        if (w->pawns2d[i]->alive && w->pawns2d[i]->fertile && !w->pawns2d[i]->mated) {    // qualify pawn as matable
-            p = w->pawns2d[i];
+        // try to mate pawn
+        mate = world_get_mate(w, p);
+        if (!mate) return;    // no mate found
 
-            // try to mate pawn
-            mate = world_get_mate(w, p);
-            if (!mate) continue;    // no mate found
+        // pawns mated; New Pawn, if there is space!
+        new_pawn_pt = world_get_new_pawn_xy(w, p, mate);
+        p->mated = true;
+        mate->mated = true;
+        pawnvec_add(mate_vec, p);
+        pawnvec_add(mate_vec, mate);
 
-            // pawns mated; New Pawn, if there is space!
-            new_pawn_pt = world_get_new_pawn_xy(w, p, mate);
-            p->mated = true;
-            mate->mated = true;
-
-            if (new_pawn_pt.x == -1 && new_pawn_pt.y == -1) {
-                continue;   // didn't find space to exist
-            }
-
-            // make new pawn
-            world_add_pawn(w, new_pawn_pt);
-            w->born_pawns++;
-
+        if (new_pawn_pt.x == -1 && new_pawn_pt.y == -1) {
+            return;   // didn't find space to exist
         }
-        
+
+        // make new pawn
+        world_new_pawn(w, new_pawn_pt, born_vec);
+
     }
-    world_reset_mated_flag(w);
 
 }
 
 
 int world_count_pawns_in_ring(World *w, Pawn *p, int r) {
     // ring is the (2r+1)^2-1 cells around the pawn
+    if (!p) return 0;
     int px = p->x_pos, py = p->y_pos;
     int ring_cnt = 0;
     int idx;
@@ -406,7 +476,7 @@ int world_count_pawns_in_ring(World *w, Pawn *p, int r) {
 
 
 bool world_audit_world(World *w) {
-    int alive = 0, dead = 0;
+    unsigned int alive = 0, dead = 0;
     // check world stats for correctness
     for (int i = 0; i<w->pawn_arr_len; i++) {
         if (w->pawns2d[i]) {
@@ -480,7 +550,7 @@ static unsigned int world_calc_distance(Point2d p1, Point2d p2) {
 
     float tmp = (float)((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
     if (tmp < 0) {
-        fprintf(stderr, "ERR sqrt(neg): d[ (%d,%d), (%d,%d) ] -> %f", p1.x,p1.y,p2.x,p2.y, tmp);
+        fprintf(stderr, "ERR sqrt(neg): d[ (%d,%d), (%d,%d) ] -> %f\n", p1.x,p1.y,p2.x,p2.y, tmp);
         exit(1);
     }
 
@@ -496,13 +566,17 @@ static bool world_is_cell_free(World* w, Point2d p) {
 
 }
 
-static void world_reset_mated_flag(World* w) {
-    for (int i = 0; i < w->pawn_arr_len; i++) {
-        if (w->pawns2d[i]) {
-            if(w->pawns2d[i]->mated) {
-                w->pawns2d[i]->mated = false;
-            }
+
+static void world_reset_mated_flag(PawnVec *pv) {
+    if (!pv) return;
+    if (pv->len == 0) return;
+
+    for (int i = 0; i < pv->len; i++) {
+        
+        if(pv->ps[i]->mated == true) {
+            pv->ps[i]->mated = false;
         }
+        
     }
 }
 

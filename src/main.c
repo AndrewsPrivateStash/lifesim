@@ -155,21 +155,20 @@ int main(int argc, char **argv) {
         // ############### UPDATE STATE ###############
 
         if(!paused) {
-            world_mate(world);              // mate the Pawns
-            world_age_pawns(world);         // age the pawns (who were not just born)
-            world_kill_pawns(world);        // retire dead pawns **and kill pawns with too many neighbors**
-            world_migrate_pawns(world);     // migrate pawns who pass check every 5 seasons
-            (world->season)++;
+           world_update(world);     // update the world
+           world->season++;
         }
 
-        if (world->alive_pawns == 0) break;
+        // stop condition
+        if (world->alive_pawns == 0 || world->alive_pawns == (unsigned int)world->pawn_arr_len) break;
 
-        if (world->season % 50 == 0) {
-            if (!world_audit_world(world)) {
-                fprintf(stderr, "\nAudit failed, alive counts don't match\n");
-                paused = true;
-            }
-        }
+        // audit
+        // if (world->season % 50 == 0) {
+        //     if (!world_audit_world(world)) {
+        //         fprintf(stderr, "\nAudit failed, alive counts don't match\n");
+        //         paused = true;
+        //     }
+        // }
         
         //----------------------------------------------------------------------------------
     }
