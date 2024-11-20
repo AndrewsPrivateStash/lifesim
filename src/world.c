@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <stdbool.h>
 #include <raylib.h>
@@ -13,21 +14,23 @@ static const int _WIN_WIDTH_OFFSET = 10;                                    // p
 static const int _WIN_HEIGHT_OFFSET = 10;                                   // pixel offset from window height boundary for pawn population
 static const int _PAWN_SEARCH_RADIUS = 5;                                  // pixel radius to search around mid-point of parents
 static const int _PAWN_MAX_POSSIBLE_MATES = 3;                              // the maximum number of possible mates a pawn can store in it's radius
-static const int _PAWN_STARVE_PROBS[] = {0, 0, 1, 2, 3, 5, 10, 15};          // prob of pawn starving based on immediate ring population
+static const int _PAWN_STARVE_PROBS[] = {0, 0, 0, 2, 3, 5, 10, 15};          // prob of pawn starving based on immediate ring population
 static const int _PAWN_ATTACKED_PROBS[] = {0, 0, 0, 0, 1, 2, 3, 5};         // prob of pawn being attacked based on immediate ring population
 static const int _PAWN_MIGRATION_RADIUS = 20;                               // max radius a pawn can migrate
-static const int _PAWN_MIGRATION_PROB = 10;                                 // chance pawn migrates in a season
+static const int _PAWN_MIGRATION_PROB = 75;                                 // chance pawn migrates in a season
 static const int _PAWN_MIGRATION_PROB_DENOM = 1000;                         // chance pawn migrates in a season
 static const int _PAWN_RING_RADIUS = 1;                                     // radius around pawn to check for other pawns (for starve, and attack rolls)
 
 
-static Point2d world_get_new_pawn_xy(World*, Pawn*, Pawn*);                 // locate a suitable xy coord for a new pawn to generate
+static Point2d world_get_new_pawn_xy(World*, Pawn*, Pawn*, PawnVec*);       // locate a suitable xy coord for a new pawn to generate
 static Point2d world_find_midpoint(Point2d, Point2d);                       // calcuate the mid-point between two xy Points
-static Point2d world_region_search(World*, Point2d, int);                   // find empty cell in radius of point
+static Point2d world_region_search(World*, Point2d, int, PawnVec*);         // find empty cell in radius of point
 static unsigned int world_calc_distance(Point2d, Point2d);                  // calcuate the distance between two xy Points
 static bool world_is_cell_free(World*, Point2d);                            // check the cell for availability
 static void world_reset_mated_flag(PawnVec*);                               // resets the mated flag for all the pawns
 static int* world_random_list(int, int, int, int, int);                     // make an array of indices for populating world
+static bool world_in_excluded(Point2d pnt, PawnVec *exc);                   // check born_vec to ensure newborns don't collide
+
 
 
 World *world_new(int *err, int xw, int yh) {
@@ -113,9 +116,9 @@ void world_populate(World* w, int tot_pop) {
                 exit(1);
             }
 
-            w->pawns2d[y_idx * w->x_width + x_idx] = tmp_pawn;
-            (w->pawn_cnt)++;
-            (w->alive_pawns)++;
+            w->pawns2d[convert_2d_to_1d_idx(x_idx, y_idx, w->x_width)] = tmp_pawn;
+            w->pawn_cnt++;
+            w->alive_pawns++;
 
         }
     }
@@ -144,14 +147,15 @@ void world_update(World *w) {
         if(!w->pawns2d[i]) continue;                        // skip empty cells
         p = w->pawns2d[i];
 
-        world_kill_pawn(w, w->pawns2d[i], dead_list);       // retire dead pawn **and kill pawns with too many neighbors**
+        world_kill_pawn(w, p, dead_list);                   // find dead pawns and add to dead vector
         if (!p->alive) continue;                            // pawn is now dead
 
-        world_mate(w, p, mate_list, born_list);             // mate a Pawn
+        world_mate(w, p, mate_list, born_list);             // mate a Pawn and populate born_list
         world_age_pawn(w, p);                               // age the pawns (who were not just born)
         world_find_migrating_pawns(w, p, migrate_list);     // add pawn to migration list if passes roll
         
     }
+    world_remove_dead_pawns(w, dead_list);                  // remove the dead pawns
 
     // place the newborns
     if (born_list->len > 0) {
@@ -163,7 +167,6 @@ void world_update(World *w) {
 
     world_reset_mated_flag(mate_list);                      // use mate_list to reset the mated flag
     world_migrate_pawns(w, migrate_list);                   // move the pawns that are to migrate
-    world_remove_dead_pawns(w, dead_list);                  // remove the dead pawns
 
     pawnvec_free(mate_list);
     pawnvec_free(born_list);
@@ -187,7 +190,7 @@ void world_add_new_pawn_by_point(World* w, Point2d p) {
 
 
 void world_new_pawn(World* w, Point2d p, PawnVec *bornVec) {
-    Pawn *tmp = pawn_new(w->pawn_cnt + 1, p.x, p.y, w->season, false);
+    Pawn *tmp = pawn_new(w->pawn_cnt + 1 + bornVec->len, p.x, p.y, w->season, false);
     if(!tmp) {
         fprintf(stderr, "failed to allocate Pawn %u, at: (%d, %d)\n", w->pawn_cnt+1, p.x, p.y);
         exit(1);
@@ -201,8 +204,9 @@ void world_add_pawn(World* w, Pawn *p) {
     w->pawns2d[convert_2d_to_1d_idx(p->x_pos, p->y_pos, w->x_width)] = p;
     w->pawn_cnt++;
     w->alive_pawns++;
-
+    
 }
+
 
 void world_remove_dead_pawns(World *w, PawnVec *pv) {
     if (!pv) return;
@@ -213,8 +217,8 @@ void world_remove_dead_pawns(World *w, PawnVec *pv) {
     for (int i = 0; i<pv->len; i++) {
         p = pv->ps[i];
         idx = convert_2d_to_1d_idx(p->x_pos, p->y_pos, w->x_width);
-        w->pawns2d[idx] = NULL;
         w->alive_pawns--;
+        w->pawns2d[idx] = NULL;
         pawn_free(p);
     }
 }
@@ -290,7 +294,6 @@ void world_kill_pawn(World *w, Pawn *p, PawnVec *dv) {
 
     if (!p || !dv) return;
     int rnd, cnt;
-    //int idx = convert_2d_to_1d_idx(p->x_pos, p->y_pos, w->x_width);
 
     if(p->alive) {
         cnt = world_count_pawns_in_ring(w, p, _PAWN_RING_RADIUS);
@@ -302,10 +305,7 @@ void world_kill_pawn(World *w, Pawn *p, PawnVec *dv) {
         // dies of old age
         if (p->age >= p->gen_age) {
             p->alive = false;
-            // w->alive_pawns--;
             w->old_age_death++;
-            // w->pawns2d[idx] = NULL;
-            // pawn_free(p);
             pawnvec_add(dv, p);
             return;
         }
@@ -316,10 +316,7 @@ void world_kill_pawn(World *w, Pawn *p, PawnVec *dv) {
         rnd = GetRandomValue(1, 100);
         if (_PAWN_STARVE_PROBS[cnt - 1] >= rnd) {
             p->alive = false;
-            // w->alive_pawns--;
             w->starved_pawns++;
-            // w->pawns2d[idx] = NULL;
-            // pawn_free(p);
             pawnvec_add(dv, p);
             return;
         }
@@ -328,10 +325,7 @@ void world_kill_pawn(World *w, Pawn *p, PawnVec *dv) {
         rnd = GetRandomValue(1, 100);
         if (_PAWN_ATTACKED_PROBS[cnt - 1] >= rnd) {
             p->alive = false;
-            // w->alive_pawns--;
             w->attacked_pawns++;
-            // w->pawns2d[idx] = NULL;
-            // pawn_free(p);
             pawnvec_add(dv, p);
             return;
         }
@@ -421,7 +415,7 @@ Pawn *world_get_mate(World *w, Pawn *p) {
     return ret_pawn;
 }
 
-// add pawn collect, and pawn populate functions
+
 void world_mate(World *w, Pawn *p, PawnVec *mate_vec, PawnVec *born_vec) {
     Pawn *mate;
     Point2d new_pawn_pt;
@@ -434,8 +428,8 @@ void world_mate(World *w, Pawn *p, PawnVec *mate_vec, PawnVec *born_vec) {
         mate = world_get_mate(w, p);
         if (!mate) return;    // no mate found
 
-        // pawns mated; New Pawn, if there is space!
-        new_pawn_pt = world_get_new_pawn_xy(w, p, mate);
+        // pawns mated; New Pawn, if there is space! (checks born_vec to avoid collisions)
+        new_pawn_pt = world_get_new_pawn_xy(w, p, mate, born_vec);
         p->mated = true;
         mate->mated = true;
         pawnvec_add(mate_vec, p);
@@ -484,26 +478,47 @@ bool world_audit_world(World *w) {
             else dead++;
         }
     }
-    return w->alive_pawns == alive && dead == 0;
+
+    if (w->alive_pawns == alive && dead == 0) return true;
+    else {
+        fprintf(stderr, "World says: %u alive; counted: %d, and %d dead not null cells\n", w->alive_pawns, alive, dead);
+    }
+
+    return false;
 }
 
 
 
 // ########## location functions ##########
 
-static Point2d world_get_new_pawn_xy(World* w, Pawn* pn1, Pawn* pn2) {
+static Point2d world_get_new_pawn_xy(World* w, Pawn* pn1, Pawn* pn2, PawnVec *exc) {
     // get mid-point of parents
     // find free cell in radius if exists
     Point2d p1 = {pn1->x_pos, pn1->y_pos};
     Point2d p2 = {pn2->x_pos, pn2->y_pos};
     Point2d mid_point = world_find_midpoint(p1, p2);
-    return world_region_search(w, mid_point, _PAWN_SEARCH_RADIUS);
+    return world_region_search(w, mid_point, _PAWN_SEARCH_RADIUS, exc);
 
 }
 
 
-static Point2d world_region_search(World* w, Point2d p, int r) {
-    if ( world_is_cell_free(w, p) ) {
+static bool world_in_excluded(Point2d pnt, PawnVec *exc) {
+    if (!exc) return false;
+    bool included = false;
+    if (exc->len > 0) {
+        for (int i = 0; i<exc->len; i++) {
+            if (pnt.x == exc->ps[i]->x_pos && pnt.y == exc->ps[i]->y_pos) return true;
+        }
+    }
+    return included;
+}
+
+
+static Point2d world_region_search(World* w, Point2d p, int r, PawnVec *exc) {
+    bool is_free = world_is_cell_free(w, p);
+    bool is_included = world_in_excluded(p, exc);
+    
+    if ( is_free && !is_included ) {
         return p;
     }
 
@@ -518,7 +533,8 @@ static Point2d world_region_search(World* w, Point2d p, int r) {
         tmp.y = p.y + pnts[i].y;
         if (tmp.x < 0 || tmp.y < 0) continue;   // if search cell extends beyond the window in either dim, ignore and continue
         if (tmp.x > w->x_width-1 || tmp.y > w->y_height-1) continue;
-
+        if (world_in_excluded((Point2d){tmp.x, tmp.y}, exc)) continue;    // avoid collisions
+        
         if (world_is_cell_free(w, tmp)) {
             free(pnts);
             return tmp;

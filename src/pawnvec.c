@@ -39,6 +39,18 @@ void pawnvec_free(PawnVec *pv) {
 }
 
 
+void pawnvec_free_deep(PawnVec *pv) {
+    // free the pawns pointed to
+    for (int i = 0; i<pv->len; i++) {
+        pawn_free(pv->ps[i]);
+    }
+    free(pv->ps);
+    pv->ps = NULL;
+    free(pv);
+    pv = NULL;
+}
+
+
 void pawnvec_resize(PawnVec *pv) {
     // vec and pawn pointers preserved
     if (pv->len < pv->cap) return;  // didn't need to be called
@@ -57,6 +69,40 @@ void pawnvec_add(PawnVec *pv, Pawn *p) {
     if (pv->cap == pv->len) pawnvec_resize(pv);
     pv->ps[pv->len] = p;
     pv->len++;
+}
+
+
+void pawnvec_print(PawnVec *pv) {
+    printf("PawnVec: %p, len: %d, cap: %d\n", pv, pv->len, pv->cap);
+    for (int i = 0; i<pv->len; i++) {
+        printf("id:%d, Pawn:%u, CurLoc:(%d, %d), alive: %s\n",
+            i,
+            pv->ps[i]->id,
+            pv->ps[i]->x_pos,
+            pv->ps[i]->y_pos,
+            pv->ps[i]->alive ? "TRUE": "FALSE"
+        );
+    }
+}
+
+
+void pawnvec_print_to_file(FILE *f, PawnVec *pv, const char *header) {
+    Pawn *p=NULL;
+    fprintf(f, "%s\n", header);
+    if(!pv) return;
+    if (pv->len == 0) return;
+    for (int i = 0; i<pv->len; i++) {
+        p = pv->ps[i];
+        fprintf(f, "id:%u, age:%u, alive:%d, bday:%u, (%d,%d), gen_age:%u\n",
+            p->id,
+            p->age,
+            p->alive,
+            p->bday,
+            p->x_pos,
+            p->y_pos,
+            p->gen_age
+        );
+    }
 }
 
 

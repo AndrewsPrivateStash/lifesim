@@ -10,8 +10,6 @@
 
 #include <stdbool.h>
 
-typedef struct Plist Plist;     // forward decleration
-
 typedef struct Pawn {
     unsigned int id;                    // unique pawn id
     int x_pos, y_pos;                   // x and y location on grid (top left is (0,0))
@@ -38,6 +36,9 @@ void pawn_print(Pawn*);
 
 // free the pawns memory
 void pawn_free(Pawn*);
+
+// copy pawn
+Pawn *pawn_copy(Pawn*);
 
 
 #endif

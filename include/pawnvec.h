@@ -6,6 +6,7 @@
 #ifndef PAWN_VEC_H_
 #define PAWN_VEC_H_
 
+#include <stdio.h>
 #include "pawn.h"
 #include "util.h"
 
@@ -45,12 +46,15 @@ void pawnvec_add_mg(MigVec*, struct MigPawn*);
 
 // free the vector
 void pawnvec_free(PawnVec*);
+void pawnvec_free_deep(PawnVec*);
 void pawnvec_free_mg(MigVec*);
 
 // make a new MigPawn
 struct MigPawn *pawnvec_new_migpawn(Pawn *p, Point2d pnt);
 
-//print a MigVec
+//print a Vector
+void pawnvec_print(PawnVec*);
+void pawnvec_print_to_file(FILE *f, PawnVec *pv, const char *header);
 void pawnvec_print_mg(MigVec*);
 
 

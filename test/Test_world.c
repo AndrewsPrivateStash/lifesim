@@ -348,6 +348,14 @@ void test_function_world_count_pawns_in_ring(void) {
 //     return convert_2d_to_1d_idx(pnts[0].x, pnts[0].y, w->x_width);
 // }
 
+static int count_dead_pawns_in_dead_array(PawnVec *pv) {
+    int cnt = 0;
+    for (int i = 0; i<pv->len; i++) {
+        if (!pv->ps[i]->alive) cnt++;
+    }
+    return cnt;
+}
+
 void test_function_world_kill_pawns(void) {
     World *w = new_populated_test_world(30,30,50);
     PawnVec * dead_pawns = pawnvec_new();
@@ -362,6 +370,7 @@ void test_function_world_kill_pawns(void) {
     }
 
     TEST_ASSERT_EQUAL_INT32(50, dead_pawns->len);
+    TEST_ASSERT_EQUAL_INT32(50, count_dead_pawns_in_dead_array(dead_pawns));
 
     pawnvec_free(dead_pawns);
     world_free(w);
@@ -513,6 +522,7 @@ void test_function_world_mate(void) {
     pawnvec_add(ps, p1);
 
     Pawn *p2 = pawn_new(0,5,10,0, false);
+
     p2->fertility_factor=100;
     p2->mating_factor = 100;
     p2->fertile = true;
@@ -538,13 +548,48 @@ void test_function_world_mate(void) {
 
 }
 
+static int count_alive(World *w) {
+    int cnt = 0;
+    for (int i = 0; i<w->pawn_arr_len; i++) {
+        if (w->pawns2d[i]) {
+            if (w->pawns2d[i]->alive) cnt++;
+        }
+    }
+    return cnt;
+}
+
+static PawnVec *check_ids(World *w) {
+    PawnVec *dups = pawnvec_new();
+    // check all of the pawns for unique ids
+    for (int i = 0; i<w->pawn_arr_len-1; i++) {
+        if (!w->pawns2d[i]) continue;
+        for (int j = i+1; j < w->pawn_arr_len; j++) {
+            if (!w->pawns2d[j]) continue;
+            if (w->pawns2d[i]->id == w->pawns2d[j]->id) {
+                pawnvec_add(dups, pawn_copy(w->pawns2d[i]));
+                pawnvec_add(dups, pawn_copy(w->pawns2d[j]));
+            }
+        }
+    }
+    return dups;
+
+}
+
 
 void test_function_world_update(void) {
     World *w = new_populated_test_world(50, 50, 100);
+
+    for (int i = 0; i<20; i++) {
+        world_update(w);
+    }
+    PawnVec *dups = check_ids(w);
+    TEST_ASSERT_EQUAL_INT32(0, dups->len);
+    pawnvec_free_deep(dups);
     
     while(w->season < 100) {
         world_update(w);
         w->season++;
+        TEST_ASSERT_EQUAL_INT32(count_alive(w), (int)w->alive_pawns);
     }
     
     TEST_ASSERT_TRUE(w->born_pawns > 0);

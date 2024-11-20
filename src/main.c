@@ -163,9 +163,10 @@ int main(int argc, char **argv) {
         if (world->alive_pawns == 0 || world->alive_pawns == (unsigned int)world->pawn_arr_len) break;
 
         // audit
-        // if (world->season % 50 == 0) {
+        // if (world->season % 10 == 0 && !paused) {
         //     if (!world_audit_world(world)) {
         //         fprintf(stderr, "\nAudit failed, alive counts don't match\n");
+        //         fprintf(stderr, "Season: %d\n", world->season);
         //         paused = true;
         //     }
         // }

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 
 // ############### Constants ###############
@@ -86,3 +87,18 @@ void pawn_print(Pawn *p) {
     );
 }
 
+
+Pawn *pawn_copy(Pawn *p) {
+    if (!p) return p;
+    Pawn *copied_pawn = pawn_new(p->id, p->x_pos, p->y_pos, p->bday, false);
+    copied_pawn->age = p->age;
+    copied_pawn->alive = p->alive;
+    copied_pawn->fertile = p->fertile;
+    copied_pawn->fertility_factor = p->fertility_factor;
+    copied_pawn->gen_age = p->gen_age;
+    copied_pawn->mated = p->mated;
+    copied_pawn->mating_factor = p->mating_factor;
+    copied_pawn->mating_radius = p->mating_radius;
+    
+    return copied_pawn;
+}

@@ -55,4 +55,5 @@ Point2d convert_1d_to_2d_idx(int i, int w);
 Vec2d generate_random_vector(int);
 
 
+
 #endif
