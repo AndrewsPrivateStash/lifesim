@@ -7,11 +7,10 @@
     - Take a set of initial conditions for a population of a race
     - simulate the lifecycle of generations moving through time
     - taking into account scarcity, proximity, threats, reproduction, etc
-
     - visually represent the population evolve over time as colored pixels in the world map, as generations progress
 
     ToDo:
-        - refactor update to make a single pass and perform the various operations to avoid multiple large array scans
+        - add a config file holding all of the params for the model
 
 */
 
