@@ -33,9 +33,8 @@ void test_function_config_print(void) {
 
     // print output for manual inspection
     config_print(c, stdout);
-    TEST_PASS();    
-
     config_free(c);
+    TEST_PASS();    
 
 }
 
@@ -45,8 +44,9 @@ void test_function_config_load_file(void) {
 
     char *raw_file = config_load_file(c, "config.ini");
     printf("%s", raw_file);
-    TEST_PASS();
     free(raw_file);
+    config_free(c);
+    TEST_PASS();
 
 }
 
@@ -57,14 +57,17 @@ void test_function_config_tokenize(void) {
     Clist *lst = config_tokenize(raw_file);
     clist_print(lst, stdout);
 
-    TEST_PASS();
 
     config_free(c);
     clist_free(lst);
+    TEST_PASS();
     
 }
 
 void test_function_config_parse(void) {
+
+    fflush(stdout);
+    fflush(stderr);
 
     Config *c = config_init();
     char *raw_file = config_load_file(c, "config.ini");

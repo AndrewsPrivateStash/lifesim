@@ -11,10 +11,6 @@
 #include "../include/clist.h"
 #include "../include/config.h"
 
-#define MAP_INT(x) c->x = *(int*)(lbv.value)
-#define MAP_FLOAT(x) c->x = *(double*)(lbv.value)
-#define MAP_INT_ARRAY(x) c->x = (int*)(lbv.value)
-
 
 static int ERR = 0; // local error int
 Config *CONFIG = NULL;
@@ -358,7 +354,7 @@ static int *parse_int_array(char *s, int *len, int *e) {
                 out_arr[arr_idx] = insert_int;
                 arr_idx++;
             } else {
-                out_arr = realloc(out_arr, sizeof(*out_arr) * (arr_idx + 1) + 1);
+                out_arr = realloc(out_arr, sizeof(*out_arr) * (arr_idx + 1));
                 out_arr[arr_idx] = insert_int;
                 arr_idx++;
             }
@@ -378,35 +374,35 @@ static void map_token_to_config(Config *c, LabelValue lbv) {
     // this is super manual, I wonder if there is a better way to do this..
     // maybe write a config maper that takes a function pointer for mapping the values
     
-    if (strcmp(lbv.label, "screenWidth") == 0) {MAP_INT(screenWidth);}
-    else if (strcmp(lbv.label, "screenHeight") == 0) {MAP_INT(screenHeight);}
-    else if (strcmp(lbv.label, "_GEN_AGE_LOWER_BND") == 0) {MAP_INT(_GEN_AGE_LOWER_BND);}
-    else if (strcmp(lbv.label, "_GEN_AGE_UPPER_BND") == 0) {MAP_INT(_GEN_AGE_UPPER_BND);}
-    else if (strcmp(lbv.label, "_FERT_FACT_LOWER_BND") == 0) {MAP_INT(_FERT_FACT_LOWER_BND);}
-    else if (strcmp(lbv.label, "_FERT_FACT_UPPER_BND") == 0) {MAP_INT(_FERT_FACT_UPPER_BND);}
-    else if (strcmp(lbv.label, "_MATING_RADIUS_LOWER_BND") == 0) {MAP_INT(_MATING_RADIUS_LOWER_BND);}
-    else if (strcmp(lbv.label, "_MATING_RADIUS_UPPER_BND") == 0) {MAP_INT(_MATING_RADIUS_UPPER_BND);}
-    else if (strcmp(lbv.label, "_MATING_FACTOR_LOWER_BND") == 0) {MAP_INT(_MATING_FACTOR_LOWER_BND);}
-    else if (strcmp(lbv.label, "_MATING_FACTOR_UPPER_BND") == 0) {MAP_INT(_MATING_FACTOR_UPPER_BND);}
-    else if (strcmp(lbv.label, "_FERTILITY_DECAY") == 0) {MAP_FLOAT(_FERTILITY_DECAY);}
-    else if (strcmp(lbv.label, "_FERTILITY_START") == 0) {MAP_INT(_FERTILITY_START);}
-    else if (strcmp(lbv.label, "_WIN_WIDTH_OFFSET") == 0) {MAP_INT(_WIN_WIDTH_OFFSET);}
-    else if (strcmp(lbv.label, "_WIN_HEIGHT_OFFSET") == 0) {MAP_INT(_WIN_HEIGHT_OFFSET);}
-    else if (strcmp(lbv.label, "_PAWN_SEARCH_RADIUS") == 0) {MAP_INT(_PAWN_SEARCH_RADIUS);}
-    else if (strcmp(lbv.label, "_PAWN_MAX_POSSIBLE_MATES") == 0) {MAP_INT(_PAWN_MAX_POSSIBLE_MATES);}
-    else if (strcmp(lbv.label, "_PAWN_RING_RADIUS") == 0) {MAP_INT(_PAWN_RING_RADIUS);}
-    else if (strcmp(lbv.label, "cells_in_ring") == 0) {MAP_INT(cells_in_ring);}
+    if (strcmp(lbv.label, "screenWidth") == 0) {c->screenWidth = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "screenHeight") == 0) {c->screenHeight = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_GEN_AGE_LOWER_BND") == 0) {c->_GEN_AGE_LOWER_BND = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_GEN_AGE_UPPER_BND") == 0) {c->_GEN_AGE_UPPER_BND = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_FERT_FACT_LOWER_BND") == 0) {c->_FERT_FACT_LOWER_BND = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_FERT_FACT_UPPER_BND") == 0) {c->_FERT_FACT_UPPER_BND = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_MATING_RADIUS_LOWER_BND") == 0) {c->_MATING_RADIUS_LOWER_BND = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_MATING_RADIUS_UPPER_BND") == 0) {c->_MATING_RADIUS_UPPER_BND = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_MATING_FACTOR_LOWER_BND") == 0) {c->_MATING_FACTOR_LOWER_BND = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_MATING_FACTOR_UPPER_BND") == 0) {c->_MATING_FACTOR_UPPER_BND = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_FERTILITY_DECAY") == 0) {c->_FERTILITY_DECAY = *(double*)(lbv.value);}
+    else if (strcmp(lbv.label, "_FERTILITY_START") == 0) {c->_FERTILITY_START = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_WIN_WIDTH_OFFSET") == 0) {c->_WIN_WIDTH_OFFSET = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_WIN_HEIGHT_OFFSET") == 0) {c->_WIN_HEIGHT_OFFSET = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_PAWN_SEARCH_RADIUS") == 0) {c->_PAWN_SEARCH_RADIUS = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_PAWN_MAX_POSSIBLE_MATES") == 0) {c->_PAWN_MAX_POSSIBLE_MATES = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_PAWN_RING_RADIUS") == 0) {c->_PAWN_RING_RADIUS = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "cells_in_ring") == 0) {c->cells_in_ring = *(int*)(lbv.value);}
     else if (strcmp(lbv.label, "_PAWN_STARVE_PROBS") == 0) {
         free(c->_PAWN_STARVE_PROBS);
-        MAP_INT_ARRAY(_PAWN_STARVE_PROBS);
+        c->_PAWN_STARVE_PROBS = (int*)(lbv.value);
     }
     else if (strcmp(lbv.label, "_PAWN_ATTACKED_PROBS") == 0) {
         free(c->_PAWN_ATTACKED_PROBS);
-        MAP_INT_ARRAY(_PAWN_ATTACKED_PROBS);
+        c->_PAWN_ATTACKED_PROBS = (int*)(lbv.value);
     }
-    else if (strcmp(lbv.label, "_PAWN_MIGRATION_RADIUS") == 0) {MAP_INT(_PAWN_MIGRATION_RADIUS);}
-    else if (strcmp(lbv.label, "_PAWN_MIGRATION_PROB") == 0) {MAP_INT(_PAWN_MIGRATION_PROB);}
-    else if (strcmp(lbv.label, "_PAWN_MIGRATION_PROB_DENOM") == 0) {MAP_INT(_PAWN_MIGRATION_PROB_DENOM);}
+    else if (strcmp(lbv.label, "_PAWN_MIGRATION_RADIUS") == 0) {c->_PAWN_MIGRATION_RADIUS = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_PAWN_MIGRATION_PROB") == 0) {c->_PAWN_MIGRATION_PROB = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "_PAWN_MIGRATION_PROB_DENOM") == 0) {c->_PAWN_MIGRATION_PROB_DENOM = *(int*)(lbv.value);}
     
 }
 
@@ -418,13 +414,16 @@ void config_parse(Config *c, Clist *lst) {
 
     ConfToken cur, nxt;     // cur should be ident and nxt the val
     ConType cur_type;
+
+    int intval; double dblval; int *intarr;     // used for label value pairs
     while (lst->cnt > 0) {
-        // empty list
-        cur = clist_pop(lst);
-        if (cur.type == COMMENT_) continue;
 
         cur = clist_pop(lst);
-        nxt = clist_pop(lst);
+        if (cur.type == COMMENT_) {
+            continue;
+        } else {
+            nxt = clist_pop(lst);
+        }
 
         // incomplete token pair
         if (cur.seq != nxt.seq) {
@@ -457,34 +456,38 @@ void config_parse(Config *c, Clist *lst) {
         //parse val
         switch (cur_type) {
             case INT_:  {
-                int tmp = string_to_int(nxt.tok, &ERR);
+                intval = string_to_int(nxt.tok, &ERR);
                 if (ERR) {
                     fprintf(stderr, "error parsing %s, skipping\n", nxt.tok);
                     ERR = 0;
                     continue;
                 }
-                lbv.value = &tmp;
+                lbv.value = &intval;
                 break;
             }
             case FLOAT_: {
-                double tmp = parse_double(nxt.tok, &ERR);
+                dblval = parse_double(nxt.tok, &ERR);
                 if (ERR) {
                     fprintf(stderr, "error parsing %s, skipping\n", nxt.tok);
                     ERR = 0;
                     continue;
                 }
-                lbv.value = &tmp;
+                lbv.value = &dblval;
                 break;
             }
             case INTARRAY_: {
                 int prob_len = 0;
-                int *tmp = parse_int_array(nxt.tok, &prob_len, &ERR);
+                intarr = parse_int_array(nxt.tok, &prob_len, &ERR);
                 if (ERR) {
                     fprintf(stderr, "error parsing %s, skipping\n", nxt.tok);
                     ERR = 0;
                     continue;
                 }
-                lbv.value = tmp;
+                if (prob_len != c->cells_in_ring) {
+                    fprintf(stderr, "%d from parse doesn't match ring size of: %d\n", prob_len, c->cells_in_ring);
+                    exit(1);
+                }
+                lbv.value = intarr;
                 break;
             }
             default: {
