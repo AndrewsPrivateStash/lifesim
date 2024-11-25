@@ -6,6 +6,9 @@
 #include <raylib.h>
 #include <time.h>
 #include "../include/pawn.h"
+#include "../include/config.h"
+
+extern Config *CONFIG;
 
 
 void setUp(void) {
@@ -61,6 +64,10 @@ void test_function_pawn_age(void) {
 
 
 int main(void) {
+
+    // get config data
+    CONFIG = config_init();
+    config_load(CONFIG, "config.ini");
 
     SetRandomSeed(time(NULL));
     

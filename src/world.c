@@ -8,18 +8,22 @@
 #include "../include/world.h"
 #include "../include/util.h"
 #include "../include/pawnvec.h"
+#include "../include/config.h"
+
+extern Config *CONFIG;
 
 
-static const int _WIN_WIDTH_OFFSET = 10;                                    // pixel offset from window width boundary for pawn population
-static const int _WIN_HEIGHT_OFFSET = 10;                                   // pixel offset from window height boundary for pawn population
-static const int _PAWN_SEARCH_RADIUS = 5;                                  // pixel radius to search around mid-point of parents
-static const int _PAWN_MAX_POSSIBLE_MATES = 3;                              // the maximum number of possible mates a pawn can store in it's radius
-static const int _PAWN_STARVE_PROBS[] = {0, 0, 0, 2, 3, 5, 10, 15};          // prob of pawn starving based on immediate ring population
-static const int _PAWN_ATTACKED_PROBS[] = {0, 0, 0, 0, 1, 2, 3, 5};         // prob of pawn being attacked based on immediate ring population
-static const int _PAWN_MIGRATION_RADIUS = 20;                               // max radius a pawn can migrate
-static const int _PAWN_MIGRATION_PROB = 75;                                 // chance pawn migrates in a season
-static const int _PAWN_MIGRATION_PROB_DENOM = 1000;                         // chance pawn migrates in a season
-static const int _PAWN_RING_RADIUS = 1;                                     // radius around pawn to check for other pawns (for starve, and attack rolls)
+// ############### Constants ###############
+// CONFIG->_WIN_WIDTH_OFFSET = 10;                                    // pixel offset from window width boundary for pawn population
+// CONFIG->_WIN_HEIGHT_OFFSET = 10;                                   // pixel offset from window height boundary for pawn population
+// CONFIG->_PAWN_SEARCH_RADIUS = 5;                                   // pixel radius to search around mid-point of parents
+// CONFIG->_PAWN_MAX_POSSIBLE_MATES = 3;                              // the maximum number of possible mates a pawn can store in it's radius
+// CONFIG->_PAWN_STARVE_PROBS[] = {0, 0, 0, 2, 3, 5, 10, 15};         // prob of pawn starving based on immediate ring population
+// CONFIG->_PAWN_ATTACKED_PROBS[] = {0, 0, 0, 0, 1, 2, 3, 5};         // prob of pawn being attacked based on immediate ring population
+// CONFIG->_PAWN_MIGRATION_RADIUS = 20;                               // max radius a pawn can migrate
+// CONFIG->_PAWN_MIGRATION_PROB = 75;                                 // chance pawn migrates in a season
+// CONFIG->_PAWN_MIGRATION_PROB_DENOM = 1000;                         // chance pawn migrates in a season
+// CONFIG->_PAWN_RING_RADIUS = 1;                                     // radius around pawn to check for other pawns (for starve, and attack rolls)
 
 
 static Point2d world_get_new_pawn_xy(World*, Pawn*, Pawn*, PawnVec*);       // locate a suitable xy coord for a new pawn to generate
@@ -35,8 +39,8 @@ static bool world_in_excluded(Point2d pnt, PawnVec *exc);                   // c
 
 World *world_new(int *err, int xw, int yh) {
     // check offsets fit in window dims
-    if (xw - 2 * _WIN_WIDTH_OFFSET < 1 || yh - 2 * _WIN_HEIGHT_OFFSET < 1) {
-        fprintf(stderr, "window of: %d x %d and offsets of %d, %d don't make sense\n", xw, yh, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
+    if (xw - 2 * CONFIG->_WIN_WIDTH_OFFSET < 1 || yh - 2 * CONFIG->_WIN_HEIGHT_OFFSET < 1) {
+        fprintf(stderr, "window of: %d x %d and offsets of %d, %d don't make sense\n", xw, yh, CONFIG->_WIN_WIDTH_OFFSET, CONFIG->_WIN_HEIGHT_OFFSET);
         exit(1);
     }
 
@@ -92,13 +96,13 @@ void world_dump_data(World *w) {
 
 
 void world_populate(World* w, int tot_pop) {
-    int pawn_capacity = (w->x_width - 2 * _WIN_WIDTH_OFFSET) * (w->y_height - 2 * _WIN_HEIGHT_OFFSET);
+    int pawn_capacity = (w->x_width - 2 * CONFIG->_WIN_WIDTH_OFFSET) * (w->y_height - 2 * CONFIG->_WIN_HEIGHT_OFFSET);
     if (tot_pop > pawn_capacity) {
         fprintf(stderr, "%d is too many pawns for %d free space\n", tot_pop, pawn_capacity);
         exit(1);
     }
     
-    int *rnd_arr = world_random_list(tot_pop, w->x_width, w->y_height, _WIN_WIDTH_OFFSET, _WIN_HEIGHT_OFFSET);
+    int *rnd_arr = world_random_list(tot_pop, w->x_width, w->y_height, CONFIG->_WIN_WIDTH_OFFSET, CONFIG->_WIN_HEIGHT_OFFSET);
     int x_idx, y_idx;
     Pawn *tmp_pawn;
 
@@ -247,10 +251,10 @@ void world_find_migrating_pawns(World *w, Pawn *p, MigVec *mg) {
     if (p->alive) {
 
         // roll the migration check
-        int rnd = GetRandomValue(1, _PAWN_MIGRATION_PROB_DENOM);
-        if (rnd <= _PAWN_MIGRATION_PROB) {
+        int rnd = GetRandomValue(1, CONFIG->_PAWN_MIGRATION_PROB_DENOM);
+        if (rnd <= CONFIG->_PAWN_MIGRATION_PROB) {
 
-            Vec2d v = generate_random_vector(_PAWN_MIGRATION_RADIUS);
+            Vec2d v = generate_random_vector(CONFIG->_PAWN_MIGRATION_RADIUS);
             if ( v.x == 0 && v.y == 0) return;    // same cell
             if (v.x + p->x_pos < 0 || v.x + p->x_pos > w->x_width-1) return;      // off x boundary
             if (v.y + p->y_pos < 0 || v.y + p->y_pos > w->y_height-1) return;     // off y boundary
@@ -296,8 +300,8 @@ void world_kill_pawn(World *w, Pawn *p, PawnVec *dv) {
     int rnd, cnt;
 
     if(p->alive) {
-        cnt = world_count_pawns_in_ring(w, p, _PAWN_RING_RADIUS);
-        if (cnt > (_PAWN_RING_RADIUS * 2 + 1) * (_PAWN_RING_RADIUS * 2 + 1) -1) {  // avoid seg
+        cnt = world_count_pawns_in_ring(w, p, CONFIG->_PAWN_RING_RADIUS);
+        if (cnt > (CONFIG->_PAWN_RING_RADIUS * 2 + 1) * (CONFIG->_PAWN_RING_RADIUS * 2 + 1) -1) {  // avoid seg
             fprintf(stderr, "ring has more than (2r+1)^2-1 cells: %d returned\n", cnt);
             exit(1);
         }
@@ -314,7 +318,7 @@ void world_kill_pawn(World *w, Pawn *p, PawnVec *dv) {
 
         // dies of starvation
         rnd = GetRandomValue(1, 100);
-        if (_PAWN_STARVE_PROBS[cnt - 1] >= rnd) {
+        if (CONFIG->_PAWN_STARVE_PROBS[cnt - 1] >= rnd) {
             p->alive = false;
             w->starved_pawns++;
             pawnvec_add(dv, p);
@@ -323,7 +327,7 @@ void world_kill_pawn(World *w, Pawn *p, PawnVec *dv) {
 
         // dies of attack
         rnd = GetRandomValue(1, 100);
-        if (_PAWN_ATTACKED_PROBS[cnt - 1] >= rnd) {
+        if (CONFIG->_PAWN_ATTACKED_PROBS[cnt - 1] >= rnd) {
             p->alive = false;
             w->attacked_pawns++;
             pawnvec_add(dv, p);
@@ -383,7 +387,7 @@ Pawn *world_get_mate(World *w, Pawn *p) {
     int rad = p->mating_radius;
     int x = p->x_pos, y = p->y_pos;
     int idx;
-    int mating_tries = _PAWN_MAX_POSSIBLE_MATES;
+    int mating_tries = CONFIG->_PAWN_MAX_POSSIBLE_MATES;
     Pawn *ret_pawn = NULL;
     
 
@@ -497,7 +501,7 @@ static Point2d world_get_new_pawn_xy(World* w, Pawn* pn1, Pawn* pn2, PawnVec *ex
     Point2d p1 = {pn1->x_pos, pn1->y_pos};
     Point2d p2 = {pn2->x_pos, pn2->y_pos};
     Point2d mid_point = world_find_midpoint(p1, p2);
-    return world_region_search(w, mid_point, _PAWN_SEARCH_RADIUS, exc);
+    return world_region_search(w, mid_point, CONFIG->_PAWN_SEARCH_RADIUS, exc);
 
 }
 
@@ -577,7 +581,7 @@ static unsigned int world_calc_distance(Point2d p1, Point2d p2) {
 }
 
 
-static bool world_is_cell_free(World* w, Point2d p) {
+static inline bool world_is_cell_free(World* w, Point2d p) {
     return w->pawns2d[p.y * w->x_width + p.x] == NULL;
 
 }

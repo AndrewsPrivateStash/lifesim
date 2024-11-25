@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <time.h>
+#include <stdbool.h>
 #include "../include/util.h"
 
 
@@ -28,6 +29,14 @@ int string_to_int(const char *str, int *err){
     }
 
     return (int) num;
+}
+
+bool is_in_chars(const char *c, const char *ls) {
+    while (ls) {
+        if (*c == *ls) return true;
+        ls++;
+    }
+    return false;
 }
 
 
@@ -73,7 +82,7 @@ void print_array(void *a, int len, char type) {
     switch (type) {
         case 'i':
         {
-            printf("\n[");
+            printf("[");
             for (int i = 0; i<len-1; i++) {
                 printf("%d,", *((int*)a + i));
             }

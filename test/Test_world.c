@@ -8,7 +8,9 @@
 #include <time.h>
 #include <stdlib.h>
 #include "../include/world.h"
+#include "../include/config.h"
 
+extern Config *CONFIG;
 
 void setUp(void) {
     /* This is run before EACH TEST */
@@ -604,6 +606,10 @@ void test_function_world_update(void) {
 
 
 int main(void) {
+
+    // get config data
+    CONFIG = config_init();
+    config_load(CONFIG, "config.ini");
 
     srand( time(NULL) );
     SetRandomSeed(time(NULL));

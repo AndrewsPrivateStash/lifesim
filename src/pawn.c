@@ -1,24 +1,27 @@
 
 #include "../include/pawn.h"
+#include "../include/config.h"
 #include "raylib.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
 
+extern Config *CONFIG;
+
 
 // ############### Constants ###############
-static const int _GEN_AGE_LOWER_BND = 1;           // min genetic age of Pawn
-static const int _GEN_AGE_UPPER_BND = 80;          // max genetic age of Pawn
-static const int _FERT_FACT_LOWER_BND = 0;         // min fertility factor of Pawn
-static const int _FERT_FACT_UPPER_BND = 100;       // max fertility factor of Pawn
-static const int _MATING_RADIUS_LOWER_BND = 1;     // min mating radius of Pawn
-static const int _MATING_RADIUS_UPPER_BND = 10;    // max mating radius of Pawn
-static const int _MATING_FACTOR_LOWER_BND = 0;     // min mating factor of Pawn
-static const int _MATING_FACTOR_UPPER_BND = 100;   // max mating factor of Pawn
+// CONFIG->_GEN_AGE_LOWER_BND = 1;           // min genetic age of Pawn
+// CONFIG->_GEN_AGE_UPPER_BND = 80;          // max genetic age of Pawn
+// CONFIG->_FERT_FACT_LOWER_BND = 0;         // min fertility factor of Pawn
+// CONFIG->_FERT_FACT_UPPER_BND = 100;       // max fertility factor of Pawn
+// CONFIG->_MATING_RADIUS_LOWER_BND = 1;     // min mating radius of Pawn
+// CONFIG->_MATING_RADIUS_UPPER_BND = 10;    // max mating radius of Pawn
+// CONFIG->_MATING_FACTOR_LOWER_BND = 0;     // min mating factor of Pawn
+// CONFIG->_MATING_FACTOR_UPPER_BND = 100;   // max mating factor of Pawn
 
-static const double _FERTILITY_DECAY = 0.95;       // the decay factor applied to fertility factor each season
-static const int _FERTILITY_START = 13;            // the age a Pawn becomes fertile
+// CONFIG->_FERTILITY_DECAY = 0.95;          // the decay factor applied to fertility factor each season
+// CONFIG->_FERTILITY_START = 13;            // the age a Pawn becomes fertile
 
 
 // ############### Pawn functions ############### 
@@ -34,16 +37,16 @@ Pawn *pawn_new(unsigned int id, int x, int y, unsigned int bday, bool pre_age){
         p->age = 0;
         p->fertile = false;
         p->mated = false;
-        
+
         // random values (set once; genetics from birth)
-        p->gen_age = (unsigned short)GetRandomValue(_GEN_AGE_LOWER_BND,_GEN_AGE_UPPER_BND);
-        p->fertility_factor = (unsigned short)GetRandomValue(_FERT_FACT_LOWER_BND,_FERT_FACT_UPPER_BND);    // decreases with age, dormant until _FERTILITY_START
-        p->mating_radius = (unsigned short)GetRandomValue(_MATING_RADIUS_LOWER_BND,_MATING_RADIUS_UPPER_BND);
-        p->mating_factor = (unsigned short)GetRandomValue(_MATING_FACTOR_LOWER_BND,_MATING_FACTOR_UPPER_BND);
+        p->gen_age = (unsigned short)GetRandomValue(CONFIG->_GEN_AGE_LOWER_BND,CONFIG->_GEN_AGE_UPPER_BND);
+        p->fertility_factor = (unsigned short)GetRandomValue(CONFIG->_FERT_FACT_LOWER_BND,CONFIG->_FERT_FACT_UPPER_BND);    // decreases with age, dormant until CONFIG->_FERTILITY_START
+        p->mating_radius = (unsigned short)GetRandomValue(CONFIG->_MATING_RADIUS_LOWER_BND,CONFIG->_MATING_RADIUS_UPPER_BND);
+        p->mating_factor = (unsigned short)GetRandomValue(CONFIG->_MATING_FACTOR_LOWER_BND,CONFIG->_MATING_FACTOR_UPPER_BND);
 
         if (pre_age) {
-            p->age = (unsigned short)GetRandomValue(_GEN_AGE_LOWER_BND, p->gen_age -1);
-            if (p->age >= _FERTILITY_START) p->fertile = true;
+            p->age = (unsigned short)GetRandomValue(CONFIG->_GEN_AGE_LOWER_BND, p->gen_age -1);
+            if (p->age >= CONFIG->_FERTILITY_START) p->fertile = true;
         }
 
     }
@@ -61,9 +64,9 @@ void pawn_age(Pawn *p){
         if (p->alive) {
             p->age++;
             if (p->fertile) {
-                p->fertility_factor = (unsigned short)round( _FERTILITY_DECAY * p->fertility_factor -1 );
+                p->fertility_factor = (unsigned short)round( CONFIG->_FERTILITY_DECAY * p->fertility_factor -1 );
             }
-            if (p->age >= _FERTILITY_START && !p->fertile) p->fertile = true;
+            if (p->age >= CONFIG->_FERTILITY_START && !p->fertile) p->fertile = true;
             if (p->fertility_factor == 0 && p->fertile) p->fertile = false;
         }
     }

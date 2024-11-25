@@ -14,18 +14,18 @@
 
 
 typedef struct World{
-    unsigned int pawn_cnt;      // total count of pawns who have existed
-    unsigned int alive_pawns;   // count of alive pawns
-    unsigned int born_pawns;    // count of born pawns
+    unsigned int pawn_cnt;          // total count of pawns who have existed
+    unsigned int alive_pawns;       // count of alive pawns
+    unsigned int born_pawns;        // count of born pawns
     unsigned int old_age_death;     // count of pawns who die naturally
     unsigned int starved_pawns;     // count of starved pawns
     unsigned int attacked_pawns;    // count of attacked pawns
     unsigned int migrated_pawns;    // count of migrated pawns
-    unsigned int season;        // every frame is a season
-    int x_width;                // screen width
-    int y_height;               // screen height
-    int pawn_arr_len;           // length of pawns2d (x_width * y_height)
-    Pawn **pawns2d;             // array of pointers to pawns stored linearly; use arr[row * xw + col] to index (row, col)
+    unsigned int season;            // every frame is a season
+    int x_width;                    // screen width
+    int y_height;                   // screen height
+    int pawn_arr_len;               // length of pawns2d (x_width * y_height)
+    Pawn **pawns2d;                 // array of pointers to pawns stored linearly; use arr[row * xw + col] to index (row, col)
 
 } World;
 

@@ -10,7 +10,6 @@
     - visually represent the population evolve over time as colored pixels in the world map, as generations progress
 
     ToDo:
-        - add a config file holding all of the params for the model
 
 */
 
@@ -23,7 +22,11 @@
 #include "../include/pawn.h"
 #include "../include/world.h"
 #include "../include/util.h"
+#include "../include/config.h"
 
+
+const char CONFIG_PATH[] = "config.ini";    // default config path
+extern Config * CONFIG;
 
 int main(int argc, char **argv) {
     // Initialization
@@ -55,11 +58,16 @@ int main(int argc, char **argv) {
         }
     }
 
+    // get config data
+    CONFIG = config_init();
+    config_load(CONFIG, CONFIG_PATH);
+
+
 
     // ########### Constants ###########
     
-    const int screenWidth = 1000;
-    const int screenHeight = 600;
+    const int screenWidth = CONFIG->screenWidth;
+    const int screenHeight = CONFIG->screenHeight;
 
     const int season_x_pos = screenWidth - 160;
     const int season_y_pos = 0;
@@ -181,5 +189,6 @@ int main(int argc, char **argv) {
 
     world_dump_data(world);
     world_free(world);
+    config_free(CONFIG);
     return 0;
 }

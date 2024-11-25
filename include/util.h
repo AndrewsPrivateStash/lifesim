@@ -2,6 +2,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include <stdbool.h>
 
 // store an xy coordinate
 typedef struct Point2d {
@@ -23,6 +24,9 @@ typedef struct Vec2d {
         -3 out of bounds
 */
 int string_to_int(const char*, int*);
+
+// check if a char is included in the string of chars
+bool is_in_chars(const char*, const char*);
 
 // swap two int in an array
 void swap_ints(int*, int*);
