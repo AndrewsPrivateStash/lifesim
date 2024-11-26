@@ -14,3 +14,5 @@ Lifesim is a life simulator which aims to disperse a collection of "pawns" to th
 >>this runs lifesim with the parameters contained in config.ini with 1000 starting pawns.
 >>
 >>press space to pause simulation, press esc to quit
+
+![output](https://github.com/user-attachments/assets/e2020b76-61fd-4b21-9d17-d304b016ee4d)
