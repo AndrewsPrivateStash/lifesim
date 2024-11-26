@@ -39,7 +39,8 @@ static const ConfigElem ELEMS[] = {
     {"_PAWN_ATTACKED_PROBS", INTARRAY_},
     {"_PAWN_MIGRATION_RADIUS", INT_},
     {"_PAWN_MIGRATION_PROB", INT_},
-    {"_PAWN_MIGRATION_PROB_DENOM", INT_}
+    {"_PAWN_MIGRATION_PROB_DENOM", INT_},
+    {"pause_on_start", INT_},
 
 };
 static const int CONFIG_LEN = sizeof(ELEMS) / sizeof(ELEMS[0]);
@@ -87,6 +88,7 @@ Config *config_init(void) {
     c->_PAWN_MIGRATION_RADIUS = 20;
     c->_PAWN_MIGRATION_PROB = 75;
     c->_PAWN_MIGRATION_PROB_DENOM = 1000;
+    c->pause_on_start = 0;
     
     return c;
 }
@@ -403,6 +405,7 @@ static void map_token_to_config(Config *c, LabelValue lbv) {
     else if (strcmp(lbv.label, "_PAWN_MIGRATION_RADIUS") == 0) {c->_PAWN_MIGRATION_RADIUS = *(int*)(lbv.value);}
     else if (strcmp(lbv.label, "_PAWN_MIGRATION_PROB") == 0) {c->_PAWN_MIGRATION_PROB = *(int*)(lbv.value);}
     else if (strcmp(lbv.label, "_PAWN_MIGRATION_PROB_DENOM") == 0) {c->_PAWN_MIGRATION_PROB_DENOM = *(int*)(lbv.value);}
+    else if (strcmp(lbv.label, "pause_on_start") == 0) {c->pause_on_start = *(int*)(lbv.value);}
     
 }
 

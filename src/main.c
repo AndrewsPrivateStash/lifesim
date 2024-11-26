@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
     const Color INFERTILE_ADULT = {150, 25, 25, 255};
     const Color CHILD = {150, 10, 136, 255};
 
-    bool paused = false;
+    bool paused = CONFIG->pause_on_start == 1;
 
     // #################################
 

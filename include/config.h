@@ -84,7 +84,8 @@ typedef struct Config {
     int _PAWN_RING_RADIUS;                          // radius around pawn to check for other pawns (for starve, and attack rolls)
 
     // General
-    int cells_in_ring;
+    int cells_in_ring;                              // the count of cells in ring radius (2r+1)^2-1
+    int pause_on_start;                             // does the sim start paused (0,1)
 
 } Config;
 
