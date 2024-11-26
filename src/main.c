@@ -10,6 +10,7 @@
     - visually represent the population evolve over time as colored pixels in the world map, as generations progress
 
     ToDo:
+        - write readme.md and add animate gif to page
 
 */
 
@@ -96,7 +97,6 @@ int main(int argc, char **argv) {
     }
 
     world_populate(world, starting_population);
-    //world_get_all_mates(world); // populate the mates lists
     printf("world populated with %u Pawns\n", world->pawn_cnt);
     
     char title_buffer[128], season_buffer[128], pawn_buffer[128];
@@ -169,14 +169,6 @@ int main(int argc, char **argv) {
         // stop condition
         if (world->alive_pawns == 0 || world->alive_pawns == (unsigned int)world->pawn_arr_len) break;
 
-        // audit
-        // if (world->season % 10 == 0 && !paused) {
-        //     if (!world_audit_world(world)) {
-        //         fprintf(stderr, "\nAudit failed, alive counts don't match\n");
-        //         fprintf(stderr, "Season: %d\n", world->season);
-        //         paused = true;
-        //     }
-        // }
         
         //----------------------------------------------------------------------------------
     }

@@ -41,6 +41,13 @@ release: clean
 release: CFLAGS=-Wall -O3 -DNDEBUG
 release: $(BIN)
 
+# build with profile flag
+.PHONY: profile
+profile: clean
+profile: CFLAGS += -pg
+profile: PFL = 1
+profile: $(BIN)
+
 # dump the generated lists of files
 .PHONY: report
 report:
@@ -49,7 +56,7 @@ report:
 	@echo INC: $(INCFLS)
 
 $(BIN): $(OBJS)
-	$(CC) $^ $(LINKS) -o $@
+	$(CC) $^ $(LINKS) $(if $(PFL),-pg,) -o $@
 
 $(BLD)/%.o: $(SRC)/%.c
 	$(CC) -c $(CFLAGS) $< -o $@
