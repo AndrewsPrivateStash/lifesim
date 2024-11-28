@@ -112,10 +112,10 @@ $(TSTBLD)%.o: $(TST)%.c
 
 
 $(TSTBLD):
-	makedir -p $(TSTBLD)
+	mkdir -p $(TSTBLD)
 
 $(TSTRES):
-	makedir -p $(TSTRES)
+	mkdir -p $(TSTRES)
 
 .PRECIOUS: $(TSTBLD)%.o
 .PRECIOUS: $(TSTBLD)Test_%.$(TARGET_EXTENSION)

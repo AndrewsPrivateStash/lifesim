@@ -10,7 +10,6 @@
     - visually represent the population evolve over time as colored pixels in the world map, as generations progress
 
     ToDo:
-        - write readme.md and add animate gif to page
 
 */
 
